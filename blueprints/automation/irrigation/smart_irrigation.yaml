@@ -1,67 +1,51 @@
 blueprint:
-  name: Smart Irrigation System
-  description: >
-    Smart irrigation blueprint with sunrise/sunset support,
-    flow validation, estimated water usage,
-    manual stop detection, and notification support.
-
+  name: ThamerLab Smart Irrigation
+  description: Smart irrigation blueprint with notifications and flow monitoring.
   domain: automation
   source_url: https://github.com/ThamerLab/HA
 
   input:
     irrigation_switches:
-      name: Irrigation Switches
-      description: Select one or more irrigation valves or switches.
+      name: Irrigation Valves
+      description: Select irrigation switches.
       selector:
         entity:
-          multiple: true
           domain: switch
+          multiple: true
 
     flow_sensors:
-      name: Flow Sensors (m3/h)
-      description: Flow sensors used for water usage estimation.
+      name: Flow Sensors
+      description: Optional flow sensors.
+      default: []
       selector:
         entity:
-          multiple: true
           domain: sensor
-
-    status_sensors:
-      name: Device Status Sensors
-      description: Sensors used to verify device health and status.
-      selector:
-        entity:
           multiple: true
-          domain: sensor
 
     notify_service:
       name: Notify Service
-      description: Notification service used for alerts.
       default: notify.notify
       selector:
         text:
 
     irrigation_duration:
       name: Irrigation Duration
-      description: Irrigation runtime in minutes.
       default: 15
       selector:
         number:
           min: 1
           max: 120
           step: 1
-          unit_of_measurement: minutes
           mode: slider
 
     run_at_sunrise:
       name: Run at Sunrise
-      description: Enable automatic irrigation at sunrise.
       default: true
       selector:
         boolean:
 
     run_at_sunset:
       name: Run at Sunset
-      description: Enable automatic irrigation at sunset.
       default: true
       selector:
         boolean:
@@ -71,7 +55,6 @@ mode: restart
 variables:
   switches: !input irrigation_switches
   flows: !input flow_sensors
-  statuses: !input status_sensors
   duration: !input irrigation_duration
 
 triggers:
@@ -93,30 +76,14 @@ conditions:
       {% endif %}
 
 actions:
-  - condition: template
-    value_template: >
-      {% for s in statuses %}
-        {% if states(s) != 'normal_state' %}
-          {{ false }}
-        {% endif %}
-      {% endfor %}
-      {{ true }}
-
   - service: switch.turn_on
     target:
       entity_id: !input irrigation_switches
 
   - service: !input notify_service
     data:
-      title: "Irrigation Started"
-      message: >
-        {% if trigger.id == 'sunrise' %}
-          Irrigation started at sunrise.
-        {% else %}
-          Irrigation started at sunset.
-        {% endif %}
-
-        Duration: {{ duration }} minutes
+      title: Irrigation Started
+      message: Irrigation cycle started.
 
   - delay:
       minutes: 1
@@ -127,50 +94,7 @@ actions:
         {% for f in flows %}
           {% set ns.total = ns.total + (states(f) | float(0)) %}
         {% endfor %}
-        {{ ns.total }}
-
-  - choose:
-      - conditions:
-          - condition: template
-            value_template: >
-              {{ total_flow <= 0 }}
-        sequence:
-          - service: persistent_notification.create
-            data:
-              title: "Irrigation Error"
-              message: "No water flow detected"
-
-          - service: !input notify_service
-            data:
-              title: "Irrigation Error"
-              message: "No water flow detected"
-
-  - wait_template: >
-      {% set off = expand(switches)
-         | selectattr('state', 'eq', 'off')
-         | list
-         | count %}
-      {{ off == (switches | count) }}
-    timeout:
-      minutes: 14
-    continue_on_timeout: true
-
-  - choose:
-      - conditions:
-          - condition: template
-            value_template: >
-              {% set off = expand(switches)
-                 | selectattr('state', 'eq', 'off')
-                 | list
-                 | count %}
-              {{ off == (switches | count) }}
-        sequence:
-          - service: !input notify_service
-            data:
-              title: "Irrigation Stopped Manually"
-              message: "Irrigation was stopped before scheduled completion"
-
-          - stop: "Manual stop"
+        {{ ns.total | round(2) }}
 
   - delay:
       minutes: 14
@@ -179,22 +103,8 @@ actions:
     target:
       entity_id: !input irrigation_switches
 
-  - variables:
-      used_m3: >
-        {{ (total_flow * (duration / 60)) | round(3) }}
-
-      used_liters: >
-        {{ ((total_flow * (duration / 60)) * 1000) | round(0) }}
-
   - service: !input notify_service
     data:
-      title: "Irrigation Completed"
+      title: Irrigation Completed
       message: >
-        Irrigation completed successfully.
-
-        Estimated water usage:
-        {{ used_liters }} liters
-        ({{ used_m3 }} m³)
-
-        Current flow:
-        {{ total_flow | round(2) }} m³/h
+        Estimated usage: {{ ((total_flow * (duration / 60)) * 1000) | round(0) }} liters
