@@ -1,0 +1,8 @@
+{
+  "name": "ThamerLab Home Assistant Collection",
+  "country": "SA",
+  "homeassistant": "2024.1.0",
+  "render_readme": true,
+  "iot_class": "Local Push",
+  "filename": "blueprints/automation/irrigation/smart_irrigation.yaml"
+}
