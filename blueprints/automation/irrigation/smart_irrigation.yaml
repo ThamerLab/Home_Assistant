@@ -7,11 +7,14 @@ blueprint:
     🌅 Sunrise & sunset irrigation
     🕒 Custom daily schedule
     🔁 Repeat every X hours
-    💧 Water usage estimation
+    💧 Water usage estimation from live flow sensors
     🌊 Flow monitoring
     🚨 No-flow protection
     📱 Mobile notifications
     🛑 Manual stop detection
+
+    Water usage calculation:
+    total usage = total flow after one minute × irrigation duration in hours
 
   domain: automation
   source_url: https://github.com/ThamerLab/HA/blob/main/blueprints/automation/irrigation/smart_irrigation.yaml
@@ -83,7 +86,9 @@ blueprint:
       description: >
         Optional flow sensors used for water usage estimation and flow monitoring.
 
-        Recommended unit: m³/h
+        Recommended unit: m³/h.
+        The blueprint reads the selected sensors after one minute of irrigation,
+        adds them together, then multiplies the total flow by the irrigation duration.
       default: []
       selector:
         entity:
@@ -297,5 +302,8 @@ actions:
                     {{ used_liters }} liters
                     ({{ used_m3 }} m³)
 
-                    🌊 Flow Sample:
+                    🧮 Calculation:
+                    {{ total_flow }} m³/h × {{ (duration | float(0) / 60) | round(2) }} h
+
+                    🌊 Flow Sample After 1 Minute:
                     {{ total_flow }} m³/h
