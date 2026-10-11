@@ -1,0 +1,102 @@
+- alias: "CI - Smart Irrigation Sun"
+  use_blueprint:
+    path: ThamerLab/irrigation/smart_irrigation.yaml
+    input:
+      irrigation_switches:
+        - switch.test_irrigation_left
+        - switch.test_irrigation_right
+      irrigation_duration: 5
+      schedule_mode: sun
+      flow_sensors:
+        - sensor.test_flow_left
+        - sensor.test_flow_right
+      enable_no_flow_protection: true
+      block_if_already_on: true
+      startup_verify_seconds: 10
+      notify_devices: []
+      enable_notifications: false
+
+- alias: "CI - Smart Irrigation Custom"
+  use_blueprint:
+    path: ThamerLab/irrigation/smart_irrigation.yaml
+    input:
+      irrigation_switches:
+        - switch.test_irrigation_left
+      irrigation_duration: 1
+      schedule_mode: custom
+      custom_time: "06:00:00"
+      flow_sensors: []
+      enable_no_flow_protection: false
+      notify_devices: []
+      enable_notifications: false
+
+- alias: "CI - Smart Irrigation Repeat"
+  use_blueprint:
+    path: ThamerLab/irrigation/smart_irrigation.yaml
+    input:
+      irrigation_switches:
+        - switch.test_irrigation_left
+      irrigation_duration: 2
+      schedule_mode: repeat
+      repeat_every_hours: "6"
+      flow_sensors: []
+      notify_devices: []
+      enable_notifications: false
+
+- alias: "CI - Water Safety"
+  use_blueprint:
+    path: ThamerLab/irrigation/long_running_water_safety.yaml
+    input:
+      water_switches:
+        - switch.test_irrigation_left
+        - switch.test_irrigation_right
+      long_run_minutes: 10
+      keep_minutes: 30
+      notification_tag: "ci_water_safety"
+      notify_device: "00000000000000000000000000000000"
+
+- alias: "CI - Outdoor Dusk Dawn"
+  use_blueprint:
+    path: ThamerLab/lighting/outside_lights_dusk_dawn.yaml
+    input:
+      outside_light: light.test_outside
+      sun_elevation: 5
+      notify_devices: []
+
+- alias: "CI - Outdoor Attention"
+  use_blueprint:
+    path: ThamerLab/lighting/outside_light_attention.yaml
+    input:
+      outside_light: light.test_outside
+      sun_elevation: 5
+      mismatch_minutes: 30
+      notification_tag: "ci_outside_light"
+      notify_device: "00000000000000000000000000000000"
+
+- alias: "CI - Zone Exit"
+  use_blueprint:
+    path: ThamerLab/presence/notify_leaving_zone.yaml
+    input:
+      person_entity: person.test_person
+      zone_entity: zone.home
+      notify_device: "00000000000000000000000000000000"
+
+- alias: "CI - Quran Schedule"
+  use_blueprint:
+    path: ThamerLab/quran/music_assistant_sunrise_sunset.yaml
+    input:
+      quran_player: media_player.test_music_assistant
+      quran_uri: "library://track/1"
+      media_type: track
+      notify_devices: []
+
+- alias: "CI - Available Updates"
+  use_blueprint:
+    path: ThamerLab/system/available_updates_notification.yaml
+    input:
+      notification_time: "09:30:00"
+      priority_updates:
+        - update.home_assistant_core_update
+      notify_devices:
+        - "00000000000000000000000000000000"
+      notification_tag: "ci_updates"
