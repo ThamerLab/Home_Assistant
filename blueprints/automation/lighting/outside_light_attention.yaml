@@ -1,0 +1,212 @@
+blueprint:
+  name: "💡 Outdoor Light — Abnormal State Alert"
+  description: >
+    Notify when an outdoor light remains OFF at night or ON during the day for
+    a chosen period. The notification offers Fix and Keep buttons. It is designed
+    to complement, not replace, the dusk-to-dawn automation.
+  domain: automation
+  source_url: https://github.com/ThamerLab/Home_Assistant/blob/main/blueprints/automation/lighting/outside_light_attention.yaml
+
+  input:
+    outside_light:
+      name: "💡 Outdoor Light"
+      selector:
+        entity:
+          filter:
+            domain: light
+
+    sun_elevation:
+      name: "☀️ Sun Elevation Threshold"
+      default: 5
+      selector:
+        number:
+          min: -10
+          max: 20
+          step: 0.5
+          unit_of_measurement: "°"
+          mode: slider
+
+    mismatch_minutes:
+      name: "⏱️ Mismatch Duration"
+      description: How long the abnormal state must persist before alerting.
+      default: 30
+      selector:
+        number:
+          min: 5
+          max: 180
+          step: 5
+          unit_of_measurement: minutes
+          mode: slider
+
+    notify_device:
+      name: "📱 Device to Notify"
+      selector:
+        device:
+          filter:
+            integration: mobile_app
+
+variables:
+  light_target: !input outside_light
+  elevation_limit: !input sun_elevation
+  action_fix: "{{ 'OUTSIDE_LIGHT_FIX_' ~ context.id }}"
+  action_keep: "{{ 'OUTSIDE_LIGHT_KEEP_' ~ context.id }}"
+
+triggers:
+  - trigger: state
+    entity_id: !input outside_light
+    to: "off"
+    for:
+      minutes: !input mismatch_minutes
+    id: light_off_long
+
+  - trigger: state
+    entity_id: !input outside_light
+    to: "on"
+    for:
+      minutes: !input mismatch_minutes
+    id: light_on_long
+
+  - trigger: numeric_state
+    entity_id: sun.sun
+    attribute: elevation
+    below: !input sun_elevation
+    for:
+      minutes: !input mismatch_minutes
+    id: night_long
+
+  - trigger: numeric_state
+    entity_id: sun.sun
+    attribute: elevation
+    above: !input sun_elevation
+    for:
+      minutes: !input mismatch_minutes
+    id: day_long
+
+conditions:
+  - condition: template
+    value_template: >
+      {% set elevation = state_attr('sun.sun', 'elevation') %}
+      {% if elevation is none %}
+        false
+      {% else %}
+        {{
+          (elevation | float < elevation_limit | float and is_state(light_target, 'off'))
+          or
+          (elevation | float > elevation_limit | float and is_state(light_target, 'on'))
+        }}
+      {% endif %}
+
+actions:
+  - variables:
+      situation: >
+        {% set elevation = state_attr('sun.sun', 'elevation') | float(0) %}
+        {% if elevation < elevation_limit | float and is_state(light_target, 'off') %}
+          night_off
+        {% elif elevation > elevation_limit | float and is_state(light_target, 'on') %}
+          day_on
+        {% else %}
+          resolved
+        {% endif %}
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ situation == 'night_off' }}"
+        sequence:
+          - device_id: !input notify_device
+            domain: mobile_app
+            type: notify
+            title: "🌙 Outdoor light is OFF"
+            message: "The outdoor light is still off even though it is night. Fix it?"
+            data:
+              tag: outside_light_attention
+              actions:
+                - action: "{{ action_fix }}"
+                  title: "💡 Turn it on"
+                - action: "{{ action_keep }}"
+                  title: "Keep it off"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ situation == 'day_on' }}"
+        sequence:
+          - device_id: !input notify_device
+            domain: mobile_app
+            type: notify
+            title: "☀️ Outdoor light is still ON"
+            message: "The outdoor light is still on during the day. Fix it?"
+            data:
+              tag: outside_light_attention
+              actions:
+                - action: "{{ action_fix }}"
+                  title: "🔌 Turn it off"
+                - action: "{{ action_keep }}"
+                  title: "Keep it on"
+
+    default:
+      - stop: "State resolved before notification"
+
+  - wait_for_trigger:
+      - trigger: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: "{{ action_fix }}"
+        id: fix
+
+      - trigger: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: "{{ action_keep }}"
+        id: keep
+
+      - trigger: state
+        entity_id: !input outside_light
+        id: light_changed
+
+      - trigger: numeric_state
+        entity_id: sun.sun
+        attribute: elevation
+        below: !input sun_elevation
+        id: sun_below
+
+      - trigger: numeric_state
+        entity_id: sun.sun
+        attribute: elevation
+        above: !input sun_elevation
+        id: sun_above
+
+    timeout: "06:00:00"
+    continue_on_timeout: true
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ wait.completed
+                 and wait.trigger is not none
+                 and wait.trigger.id == 'fix' }}
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: >
+                      {{ state_attr('sun.sun', 'elevation') | float(0)
+                         < elevation_limit | float }}
+                sequence:
+                  - action: light.turn_on
+                    target:
+                      entity_id: !input outside_light
+            default:
+              - action: light.turn_off
+                target:
+                  entity_id: !input outside_light
+
+  - device_id: !input notify_device
+    domain: mobile_app
+    type: notify
+    message: clear_notification
+    data:
+      tag: outside_light_attention
+
+mode: single
+max_exceeded: silent

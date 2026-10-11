@@ -1,0 +1,155 @@
+blueprint:
+  name: "📖 Quran via Music Assistant — Safe Toggle"
+  description: >
+    Safe reusable Quran playback script for a Music Assistant player.
+    If the exact item is playing it stops, if paused it resumes, otherwise it
+    replaces the queue with the requested Quran URI and verifies playback.
+  domain: script
+  source_url: https://github.com/ThamerLab/Home_Assistant/blob/main/blueprints/script/quran/music_assistant_quran_toggle.yaml
+
+  input:
+    quran_player:
+      name: "🔊 Music Assistant Player"
+      description: Select the Music Assistant media_player entity.
+      selector:
+        entity:
+          filter:
+            domain: media_player
+
+    quran_uri:
+      name: "📚 Music Assistant URI"
+      description: Exact URI such as library://track/151.
+      default: "library://track/151"
+      selector:
+        text:
+
+    media_type:
+      name: "🎵 Media Type"
+      default: track
+      selector:
+        select:
+          options:
+            - track
+            - album
+            - playlist
+            - radio
+
+    notify_devices:
+      name: "📱 Notification Devices"
+      description: Optional devices for failure notifications.
+      default: []
+      selector:
+        device:
+          filter:
+            integration: mobile_app
+          multiple: true
+
+variables:
+  player: !input quran_player
+  uri: !input quran_uri
+  notify_targets: !input notify_devices
+
+mode: single
+max_exceeded: silent
+
+sequence:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ states(player) in ['unavailable', 'unknown'] }}"
+        sequence:
+          - repeat:
+              for_each: "{{ notify_targets }}"
+              sequence:
+                - device_id: "{{ repeat.item }}"
+                  domain: mobile_app
+                  type: notify
+                  title: "⚠️ Quran playback unavailable"
+                  message: "Music Assistant player is {{ states(player) }}."
+          - action: persistent_notification.create
+            data:
+              title: "⚠️ Quran playback unavailable"
+              message: "Music Assistant player {{ player }} is {{ states(player) }}."
+          - stop: "Music Assistant player unavailable"
+
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ is_state(player, 'playing')
+                 and state_attr(player, 'media_content_id') == uri }}
+        sequence:
+          - action: media_player.media_stop
+            target:
+              entity_id: !input quran_player
+          - stop: "Requested Quran item stopped"
+
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ is_state(player, 'paused')
+                 and state_attr(player, 'media_content_id') == uri }}
+        sequence:
+          - action: media_player.media_play
+            target:
+              entity_id: !input quran_player
+          - wait_template: >
+              {{ is_state(player, 'playing')
+                 and state_attr(player, 'media_content_id') == uri }}
+            timeout: "00:00:15"
+            continue_on_timeout: true
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ wait.completed }}"
+                sequence:
+                  - stop: "Requested Quran item resumed"
+          - repeat:
+              for_each: "{{ notify_targets }}"
+              sequence:
+                - device_id: "{{ repeat.item }}"
+                  domain: mobile_app
+                  type: notify
+                  title: "⚠️ Quran resume failed"
+                  message: "Playback did not resume within 15 seconds."
+          - stop: "Requested Quran item did not resume"
+
+    default:
+      - action: music_assistant.play_media
+        target:
+          entity_id: !input quran_player
+        data:
+          media_id: !input quran_uri
+          media_type: !input media_type
+          enqueue: replace
+
+      - wait_template: >
+          {{ is_state(player, 'playing')
+             and state_attr(player, 'media_content_id') == uri }}
+        timeout: "00:00:30"
+        continue_on_timeout: true
+
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ wait.completed }}"
+            sequence:
+              - stop: "Requested Quran item started"
+
+      - repeat:
+          for_each: "{{ notify_targets }}"
+          sequence:
+            - device_id: "{{ repeat.item }}"
+              domain: mobile_app
+              type: notify
+              title: "⚠️ Quran playback failed"
+              message: >
+                Music Assistant did not confirm the requested URI within 30 seconds.
+                State: {{ states(player) }}.
+      - action: persistent_notification.create
+        data:
+          title: "⚠️ Quran playback failed"
+          message: >
+            Player: {{ player }}
+            Requested URI: {{ uri }}
+            State: {{ states(player) }}
+            Current item: {{ state_attr(player, 'media_content_id') }}

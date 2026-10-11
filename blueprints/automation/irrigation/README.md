@@ -70,3 +70,16 @@ https://raw.githubusercontent.com/ThamerLab/Home_Assistant/main/blueprints/autom
 - اختبر الـBlueprint أول مرة وأنت قريب من الصمامات.
 - لا تعتمد على تقدير التدفق كعداد فوترة.
 - تأكد أن الصمامات تستجيب فعليًا لأوامر الإيقاف.
+
+
+---
+
+## 🚨 Companion Safety Blueprint
+
+إذا تبي حماية مستقلة عن جدول السقاية، استخدم:
+
+**Long-running Water Safety Watchdog**
+
+يرسل Critical Notification إذا بقي صمام ماء شغالًا مدة طويلة، ويوفر Stop/Keep مع تحقق من الإيقاف.
+
+[📖 اقرأ شرح Water Safety](./WATER_SAFETY.md)
