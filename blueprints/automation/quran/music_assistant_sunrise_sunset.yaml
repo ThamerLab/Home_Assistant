@@ -1,12 +1,16 @@
 blueprint:
   name: "📖 Quran via Music Assistant — Sunrise & Sunset"
+  author: "ThamerLab"
   description: >
-    Play an exact Quran item from Music Assistant at sunrise and sunset.
-    Uses the Music Assistant media_player entity, replaces the queue, verifies
-    that playback started, and optionally notifies one or more Home Assistant
-    Companion App devices. It does not wait for the full recitation to finish.
+    Plays an exact Quran item from Music Assistant at sunrise and sunset.
+    Targets only Music Assistant media_player entities, replaces the queue,
+    verifies that the requested URI became the active item, and reports failure
+    if playback cannot be confirmed within 30 seconds. It does not wait for the
+    recitation to finish.
   domain: automation
   source_url: https://github.com/ThamerLab/Home_Assistant/blob/main/blueprints/automation/quran/music_assistant_sunrise_sunset.yaml
+  homeassistant:
+    min_version: "2024.10.0"
 
   input:
     quran_player:
@@ -17,13 +21,15 @@ blueprint:
       selector:
         entity:
           filter:
-            domain: media_player
+            - integration: music_assistant
+              domain: media_player
 
     quran_uri:
-      name: "📚 Music Assistant URI"
+      name: "📚 Exact Music Assistant URI"
       description: >
-        Exact Music Assistant library URI, for example library://track/151.
-      default: "library://track/151"
+        Exact Music Assistant URI for the Quran item, for example
+        library://track/151. Get this URI from Music Assistant Provider Details
+        or the Home Assistant Music Assistant actions.
       selector:
         text:
 
@@ -77,7 +83,7 @@ actions:
                   domain: mobile_app
                   type: notify
                   title: "⚠️ Quran playback unavailable"
-                  message: "Music Assistant player is {{ states(player) }}."
+                  message: "The selected Music Assistant player is {{ states(player) }}."
           - action: persistent_notification.create
             data:
               title: "⚠️ Quran playback unavailable"
@@ -85,6 +91,7 @@ actions:
           - stop: "Music Assistant player unavailable"
 
   - action: music_assistant.play_media
+    continue_on_error: true
     target:
       entity_id: !input quran_player
     data:
@@ -93,8 +100,10 @@ actions:
       enqueue: replace
 
   - wait_template: >
-      {{ is_state(player, 'playing')
-         and state_attr(player, 'media_content_id') == uri }}
+      {{
+        is_state(player, 'playing')
+        and state_attr(player, 'media_content_id') == uri
+      }}
     timeout: "00:00:30"
     continue_on_timeout: true
 
