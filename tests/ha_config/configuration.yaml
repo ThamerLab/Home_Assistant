@@ -1,0 +1,12 @@
+homeassistant:
+  name: Blueprint CI
+  latitude: 24.7136
+  longitude: 46.6753
+  elevation: 600
+  unit_system: metric
+  time_zone: Asia/Riyadh
+
+default_config:
+
+automation: !include automations.yaml
+script: !include scripts.yaml
