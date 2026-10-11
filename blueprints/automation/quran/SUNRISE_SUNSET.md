@@ -4,146 +4,122 @@
   <img src="../../../assets/quran-schedule.svg" alt="Quran Sunrise and Sunset via Music Assistant" width="100%">
 </p>
 
-هذا الـBlueprint يشغّل عنصر قرآن محدد من **Music Assistant** عند الشروق وعند الغروب، ثم يتحقق أن **نفس URI المطلوب** أصبح العنصر الحالي وأن الـPlayer دخل حالة `playing`.
+This Blueprint plays one exact Quran item through **Music Assistant** at sunrise and sunset. It verifies that the requested URI becomes the current media item and that the player reaches the `playing` state.
 
-## لماذا Music Assistant؟
+## Why Music Assistant?
 
-الهدف أن يكون Home Assistant مسؤولًا عن **متى** يبدأ التشغيل، بينما Music Assistant مسؤول عن **المكتبة والـQueue والـPlayer**.
+The intended architecture is:
 
-هذا يتجنب الاعتماد المباشر على:
+- Home Assistant decides **when** playback should begin.
+- Music Assistant manages the library, queue, and target player.
 
-- Native Apple TV entity.
-- Native Google Cast entity.
-- YouTube.
-- `media_extractor`.
-- رابط ملف محلي خاص بجهاز واحد.
+This avoids direct dependency on native Apple TV, Google Cast, YouTube, `media_extractor`, or a device-specific local media URL.
 
-## المتطلبات
+## Requirements
 
-1. Music Assistant مثبت ومربوط بـHome Assistant.
-2. الـPlayer ظاهر داخل Home Assistant من Integration اسمها `music_assistant`.
-3. العنصر المطلوب موجود في مكتبة Music Assistant.
-4. لديك URI دقيق للعنصر، مثل:
-   `library://track/151`
+1. Music Assistant is installed and connected to Home Assistant.
+2. The selected player appears in Home Assistant through the `music_assistant` integration.
+3. The requested Quran item exists in Music Assistant.
+4. You have the exact URI for the item, for example `library://track/151`.
 
 > [!IMPORTANT]
-> لا تختَر Native HomePod / Apple TV / Cast entity. الـSelector في الـBlueprint مقيد بكيانات `media_player` التابعة لـMusic Assistant.
+> Do not select the native HomePod, Apple TV, or Google Cast entity. The Blueprint selector is restricted to `media_player` entities provided by the Music Assistant integration.
 
-## المدخلات
+## Inputs
 
-| Input | الوظيفة |
+| Input | Purpose |
 |---|---|
-| Music Assistant Player | الـMA media_player المستهدف |
-| Exact Music Assistant URI | URI العنصر المطلوب بالضبط |
+| Music Assistant Player | Target Music Assistant media player |
+| Exact Music Assistant URI | Exact URI for the requested item |
 | Media Type | track / album / playlist / radio |
-| Notification Devices | أجهزة Companion App الاختيارية |
+| Notification Devices | Optional Companion App devices |
 
-## التنفيذ خطوة بخطوة
+## Step-by-Step Execution
 
-### 1. Trigger الشروق أو الغروب
+### Step 1 — Sunrise or Sunset Trigger
 
-هناك Triggerان:
+The Blueprint has two triggers:
 
 - `sunrise`
 - `sunset`
 
-ولا توجد مدة انتظار طويلة بعد ذلك.
+There is no long-running timer after the trigger.
 
-### 2. فحص توفر الـPlayer
+### Step 2 — Check Player Availability
 
-إذا كانت حالته:
+If the selected player state is `unavailable` or `unknown`, the Blueprint does not attempt playback.
 
-- `unavailable`
-- أو `unknown`
+Instead, it:
 
-فلن يحاول التشغيل.
+- Sends a mobile failure notification to selected devices.
+- Creates a persistent notification.
+- Stops the automation.
 
-بدل ذلك:
+### Step 3 — Start Playback Through Music Assistant
 
-- يرسل Push Notification إلى الأجهزة المختارة.
-- ينشئ Persistent Notification.
-- ينهي الأوتوميشن.
+The Blueprint calls `music_assistant.play_media` with:
 
-### 3. تشغيل العنصر عبر Music Assistant
-
-يستدعي:
-
-`music_assistant.play_media`
-
-مع:
-
-- `media_id` = URI الذي أدخلته.
-- `media_type` = النوع الذي اخترته.
+- `media_id` = the exact URI entered by the user.
+- `media_type` = the selected media type.
 - `enqueue: replace`.
 
-معنى `replace`: استبدال الـQueue الحالي بالمحتوى المطلوب بدل إضافة السورة خلف محتوى قديم.
+Using `replace` ensures that the requested Quran item replaces the current queue instead of being appended behind older content.
 
-### 4. عدم اعتبار Service Call نجاحًا
+### Step 4 — Verify the Exact Item
 
-حتى لو Home Assistant قبل أمر الخدمة، الـBlueprint لا يقول إن التشغيل نجح مباشرة.
+A successful service call is not treated as success by itself.
 
-ينتظر حتى 30 ثانية حتى يتحقق الشرطان معًا:
+The Blueprint waits up to 30 seconds until both conditions are true:
 
-1. حالة الـPlayer = `playing`.
-2. `media_content_id` = URI المطلوب بالضبط.
+1. The player state is `playing`.
+2. `media_content_id` exactly matches the requested URI.
 
-### 5. عند النجاح
+### Step 5 — Success Path
 
-يرسل إشعار نجاح اختياري يوضح هل التشغيل بدأ عند الشروق أو الغروب.
+When both conditions are confirmed, an optional success notification indicates whether playback started at sunrise or sunset.
 
-ثم ينتهي الأوتوميشن فورًا.
+The automation then ends immediately.
 
-**لا يبقى منتظرًا حتى نهاية السورة.**
+It does **not** remain active for the full duration of the recitation.
 
-### 6. عند الفشل
+### Step 6 — Failure Path
 
-إذا لم يتحقق التشغيل خلال 30 ثانية:
+If the requested item cannot be confirmed within 30 seconds:
 
-- يرسل Push Notification اختياريًا.
-- ينشئ Persistent Notification.
-- يعرض:
-  - الـPlayer.
-  - URI المطلوب.
-  - الحالة الحالية.
-  - العنصر الحالي إن وجد.
+- An optional mobile failure notification is sent.
+- A persistent notification is created.
+- The diagnostic message includes the player, requested URI, current state, and current media content ID when available.
 
-## لماذا لا ننتظر نهاية السورة؟
+## Why the Automation Does Not Wait for the Recitation to End
 
-الانتظار ساعة أو ساعتين يجعل Automation instance مشغولًا بدون حاجة، ويعقّد Reload/Restart ويخلط بين:
+Keeping an automation instance active for one or two hours creates unnecessary complexity and can confuse natural completion, pause, manual content changes, connection loss, restart, or reload.
 
-- انتهاء طبيعي.
-- Pause.
-- تغيير المصدر.
-- فقدان الاتصال.
+This Blueprint has one responsibility: **start the requested item and verify that the correct item started**.
 
-هذا الـBlueprint مسؤول فقط عن **بدء التشغيل الموثق**.
+## Concurrency
 
-## سلوك التزامن
+The Blueprint uses `mode: single`.
 
-`mode: single`.
+Sunrise and sunset are far apart, so overlapping runs are not expected. A short verification window is sufficient.
 
-إذا كان تشغيل الأوتوميشن ما زال داخل نافذة التحقق القصيرة ووصل Trigger آخر، لن يبدأ Run متداخل.
+## Verification Limits
 
-عمليًا الشروق والغروب متباعدان جدًا، لذلك لا يوجد سبب لاستخدام `restart`.
-
-## حدود التحقق
-
-التحقق يعتمد على ما يبلغه Music Assistant في كيان Home Assistant:
+Verification is based on what Music Assistant reports through Home Assistant:
 
 - `state`
 - `media_content_id`
 
-هذا يثبت أن MA Queue يرى العنصر المطلوب نشطًا، لكنه لا يقيس الصوت المادي الخارج من السماعة.
+That confirms that Music Assistant considers the requested item active. It does not physically measure audible sound from the speaker.
 
-## اختبار قبل الاعتماد
+## Safe Live-Test Checklist
 
-1. تأكد أن الـMA Player الصحيح هو الذي ستختاره.
-2. احصل على URI من Music Assistant بدل كتابة اسم السورة فقط.
-3. أنشئ Automation من الـBlueprint.
-4. من واجهة الأوتوميشن استخدم **Run actions** في وقت تستطيع فيه سماع الجهاز، أو أنشئ نسخة اختبارية بTrigger مؤقت.
-5. تأكد أن العنصر الحالي في Music Assistant هو نفس URI.
-6. اختبر حالة Player unavailable للتأكد من Failure path.
-7. بعد نجاح الاختبار اعتمد الشروق والغروب.
+1. Confirm that the selected entity is the correct Music Assistant player.
+2. Obtain the exact URI from Music Assistant rather than relying on a title search.
+3. Create an automation from the Blueprint.
+4. Run the actions while you can observe or hear the target device.
+5. Confirm that Music Assistant reports the requested URI as the active item.
+6. Test an unavailable-player scenario to verify the failure path.
+7. Only after those checks pass should you rely on sunrise and sunset scheduling.
 
 ## Import
 

@@ -4,112 +4,109 @@
   <img src="../../../assets/outdoor-alert.svg" alt="Outdoor Light Abnormal State Alert" width="100%">
 </p>
 
-هذا الـBlueprint لا يفرض حالة اللمبة باستمرار. دوره مراقبة التناقض بين **حالة الإنارة** و**ارتفاع الشمس** وإعطاؤك قرار Fix أو Keep.
+This Blueprint does not continuously force the outdoor light into a preferred state. Its job is to detect a mismatch between **light state** and **sun elevation**, then ask the user whether to Fix it or Keep the current state.
 
-## الحالات التي تعتبر غير طبيعية
+## What Counts as an Abnormal State?
 
-مع Threshold افتراضي = 5°:
+With the default threshold of 5°:
 
-- الشمس أقل من 5° + اللمبة `off`.
-- الشمس أعلى من 5° + اللمبة `on`.
+- Sun elevation below 5° while the light is `off`.
+- Sun elevation above 5° while the light is `on`.
 
-يجب أن يستمر التناقض كامل مدة **Mismatch Duration** قبل إرسال التنبيه.
+The mismatch must remain true for the full configured **Mismatch Duration** before a notification is sent.
 
-## المدخلات
+## Inputs
 
-| Input | الافتراضي | الوظيفة |
+| Input | Default | Purpose |
 |---|---:|---|
-| Outdoor Light | — | اللمبة التي تراقبها |
-| Sun Elevation Threshold | 5° | حد الليل/النهار |
-| Mismatch Duration | 30 دقيقة | مدة استمرار الحالة قبل التنبيه |
-| Notification Tag | outside_light_attention | لمنع تكدس تنبيهات نفس النسخة |
-| Device to Notify | — | جهاز Companion App |
+| Outdoor Light | — | The light to monitor |
+| Sun Elevation Threshold | 5° | Boundary used to classify the expected day/night state |
+| Mismatch Duration | 30 min | How long the mismatch must persist before alerting |
+| Notification Tag | outside_light_attention | Prevents multiple instances from sharing the same notification thread |
+| Device to Notify | — | Companion App device that receives the actionable notification |
 
-## التنفيذ خطوة بخطوة
+## Step-by-Step Execution
 
-### 1. Template Trigger
+### Step 1 — Template Trigger
 
-يتحول Template من False إلى True عندما تظهر إحدى الحالتين غير الطبيعية.
+The trigger template becomes true when either mismatch appears.
 
-ثم يجب أن يبقى True مدة Mismatch Duration.
+The condition must stay true continuously for the configured mismatch duration before the automation starts.
 
-### 2. تحديد نوع المشكلة
+### Step 2 — Identify the Current Situation
 
-بعد الـTrigger يحدد:
+The automation classifies the mismatch as:
 
 - `night_off`
-- أو `day_on`
-- أو `resolved` إذا اختفت المشكلة قبل تنفيذ الخطوات.
+- `day_on`
+- `resolved` if the mismatch disappeared before actions started
 
-### 3. إنشاء أزرار فريدة
+### Step 3 — Create Unique Action IDs
 
-ينشئ Action IDs باستخدام `context.id`:
+The automation creates unique Fix and Keep action IDs from `context.id`.
 
-- Fix
-- Keep
+This prevents an old mobile notification from applying an action to a newer run.
 
-هذا يمنع Notification قديم من إرسال Action ID ثابت إلى تشغيل أحدث.
+### Step 4 — Send the Actionable Notification
 
-### 4. إرسال Actionable Notification
-
-لو Night + Off:
+For Night + OFF, the buttons are:
 
 - **Turn it on**
 - **Keep it off**
 
-لو Day + On:
+For Day + ON, the buttons are:
 
 - **Turn it off**
 - **Keep it on**
 
-### 5. الانتظار
+### Step 5 — Wait for a Decision or Resolution
 
-ينتظر حتى 6 ساعات لأي من:
+The automation waits up to six hours for:
 
 - Fix.
 - Keep.
-- اختفاء الحالة غير الطبيعية من نفسها.
+- The abnormal state to resolve by itself or by manual control.
 
-### 6. إذا ضغطت Fix
+### Step 6 — Re-check Before Fix
 
-قبل التحكم في اللمبة يعيد التحقق من **الحالة الحالية** ومن Elevation الحالية.
+If the user selects Fix, the automation does **not** blindly replay the original decision.
 
-مثال:
+It checks the current light state and current sun elevation again.
 
-إذا وصلك تنبيه Night + Off ثم ضغطت Fix بعد وقت طويل، لن يشغل اللمبة إلا إذا ما زالت الشمس تحت الحد واللمبة ما زالت Off.
+For example, if the user responds to a Night + OFF notification much later, the automation only turns the light ON if it is still below the configured sun-elevation threshold and the light is still OFF.
 
-### 7. إذا ضغطت Keep
+### Step 7 — Keep
 
-لا يغير اللمبة. يمسح Notification فقط.
+If Keep is selected, the automation does not change the light. It only clears the notification.
 
-وبما أن Template Trigger يحتاج انتقال False→True جديد، لن يعيد الإزعاج باستمرار لنفس الحالة المستمرة.
+Because the template trigger needs a new false-to-true transition, the same continuously true mismatch does not repeatedly trigger immediately.
 
-### 8. إذا انحلت المشكلة وحدها
+### Step 8 — Automatic Resolution
 
-يمسح التنبيه ولا يغير شيئًا.
+If the light or sun condition resolves the mismatch while the notification is waiting, the notification is cleared and no control command is sent.
 
-## Restart / Reload
+## Restart and Reload Behavior
 
-مثل أي Trigger يستخدم `for:` في Home Assistant، المؤقت الجاري لا يستمر عبر Restart أو Reload. إذا بقيت الحالة غير الطبيعية، يبدأ احتساب المدة من جديد بعد استعادة الحالة والتتبع.
+Like other Home Assistant triggers using `for:`, the elapsed mismatch timer does not survive a Home Assistant restart or automation reload. If the mismatch still exists after restart, the duration is counted again from the restored tracking state.
 
-## لماذا هو منفصل عن Dusk-to-Dawn؟
+## Why This Is Separate from Dusk to Dawn
 
-الفصل مهم:
+The separation is intentional:
 
-- Dusk-to-Dawn = تنفيذ الجدول.
-- Abnormal State Alert = مراقبة الاستثناء واحترام قرارك اليدوي.
+- Dusk to Dawn performs scheduled control.
+- Abnormal State Alert supervises exceptions while respecting a manual decision.
 
-بهذا ما يصير Watchdog يعكس قرارًا يدويًا بدون إذنك.
+Keeping those responsibilities separate prevents the watchdog from automatically undoing a user choice.
 
-## اختبار آمن
+## Safe Live-Test Checklist
 
-1. أنشئ نسخة على Light تجريبية.
-2. ضع Mismatch Duration على 5 دقائق.
-3. اجعل الحالة مخالفة للوقت الحالي.
-4. تأكد من وصول التنبيه.
-5. اختبر Keep: لا يجب أن تتغير اللمبة.
-6. اختبر Fix: يجب أن يطبق الحالة المتوقعة فقط إذا ما زال الظرف الحالي مطابقًا.
-7. غيّر حالة اللمبة يدويًا أثناء ظهور التنبيه وتأكد أنه يُغلق بدون تغيير إضافي.
+1. Create a test instance with a test light.
+2. Set Mismatch Duration to five minutes.
+3. Create a mismatch appropriate to the current sun elevation.
+4. Confirm the notification arrives.
+5. Test Keep and verify that the light does not change.
+6. Test Fix and verify that it acts only while the current conditions still justify the correction.
+7. Manually resolve the mismatch while the notification is visible and verify that the notification clears without another change.
 
 ## Import
 

@@ -1,40 +1,56 @@
 # Installation & Import
 
-هذا المستودع عبارة عن **Home Assistant Blueprint collection** وليس HACS Integration.
+This repository is a **Home Assistant Blueprint collection**, not a HACS Integration.
 
-## الإصدار المدعوم والمختبر
+## Supported and Tested Home Assistant Version
 
-جميع Blueprints الحالية تضبط `homeassistant.min_version` على **2026.9.4**، وهو نفس إصدار Home Assistant Core المستخدم في `check_config` داخل CI. لم نضع Minimum أقدم من البيئة التي تم اختبارها فعليًا.
+All current Blueprints set `homeassistant.min_version` to **2026.9.4**, which is the same Home Assistant Core version used by the repository's automated `check_config` test.
 
-## الطريقة الصحيحة
+The repository does not claim compatibility with versions older than the version that is actually tested.
 
-لكل Blueprint يوجد زر Import في صفحة الشرح الخاصة به، أو:
+## Recommended Installation Method
 
-1. افتح Home Assistant.
-2. اذهب إلى **Settings → Automations & Scenes → Blueprints**.
-3. اختر **Import Blueprint**.
-4. الصق Raw URL.
-5. أنشئ Automation/Script من الـBlueprint.
-6. اختر Inputs المناسبة لمنزلك.
-7. احفظ واختبر قبل الاعتماد.
+Each detailed Blueprint guide contains a direct Import button.
 
-## لماذا لا يوجد hacs.json؟
+You can also import manually:
 
-HACS مخصص لأنواع مستودعات معينة مثل Integrations وDashboard plugins وThemes وغيرها. هذا المستودع يجمع Blueprints متعددة، ولذلك الاعتماد على `hacs.json` هنا يعطي انطباعًا خاطئًا عن طريقة التثبيت.
+1. Open Home Assistant.
+2. Go to **Settings → Automations & Scenes → Blueprints**.
+3. Select **Import Blueprint**.
+4. Paste the raw Blueprint URL.
+5. Create an Automation or Script from the imported Blueprint.
+6. Select the entities, devices, durations, thresholds, URIs, and notification settings appropriate for your Home Assistant instance.
+7. Save the automation/script.
+8. Run the documented live-test checklist before relying on it.
 
-## تحديث Blueprint مستورد
+## Why There Is No `hacs.json`
 
-Home Assistant يحتفظ بنسخة من ملف الـBlueprint لديك. إذا حدّث المصدر، راجع النسخة المستوردة ثم Reload automations/scripts حسب الحاجة.
+HACS is intended for supported repository categories such as integrations, dashboard plugins, themes, and similar package types.
 
-## مبدأ الأمان
+This project is a multi-Blueprint collection. Publishing `hacs.json` here would give users the wrong installation path, so Blueprint import is the documented method.
 
-لا تنسخ إعدادات منزل شخص آخر حرفيًا. الـBlueprint مصمم لكي تختار:
+## Updating an Imported Blueprint
+
+Home Assistant stores a local copy of an imported Blueprint.
+
+When the upstream Blueprint changes:
+
+1. Review the upstream release or commit.
+2. Update/re-import the Blueprint in Home Assistant as appropriate.
+3. Reload automations/scripts if required.
+4. Re-test any hardware-facing changes before relying on them.
+
+## Safety Principle
+
+Do not copy another person's private Home Assistant configuration literally.
+
+The Blueprints are designed so each user selects their own:
 
 - Entities.
 - Devices.
-- مدة التشغيل.
-- حدود الشمس/التدفق.
-- URIs.
-- إعدادات الإشعار.
+- Runtime.
+- Sun/flow thresholds.
+- Media URIs.
+- Notification targets.
 
-بدون رفع بيانات منزلك الخاصة إلى GitHub.
+Private home configuration should remain in the private Home Assistant instance rather than being committed to the public repository.

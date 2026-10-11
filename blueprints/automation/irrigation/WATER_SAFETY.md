@@ -4,136 +4,143 @@
   <img src="../../../assets/water-safety.svg" alt="Long-running Water Safety Watchdog" width="100%">
 </p>
 
-هذا الـBlueprint طبقة أمان مستقلة للصمامات أو مصادر الماء التي تظهر كـ `switch`. لا يشغّل الماء من نفسه؛ فقط يراقب التشغيل الطويل ويتدخل بعد موافقة المستخدم.
+This Blueprint is an independent safety layer for water or irrigation devices exposed as `switch` entities. It does not start irrigation on its own. It watches for unexpectedly long ON periods and asks the user whether to stop or keep the water running.
 
-## الهدف
+## Purpose
 
-إذا بقي أي Switch مختار في حالة `on` أطول من الحد:
+If any selected switch remains `on` longer than the configured threshold:
 
-- يرسل تنبيهًا Critical.
-- يعرض **Stop all** و **Keep running**.
-- إذا اخترت Stop، يطفئ الجميع ويتحقق من حالة `off`.
-- إذا اخترت Keep، يعمل Snooze مؤقتًا ثم يسمح للمراقبة بالعودة.
-- إذا أُطفئت الصمامات يدويًا أثناء ظهور التنبيه، يغلق التنبيه.
+- A critical notification is sent.
+- The notification offers **Stop all** and **Keep running**.
+- Stop all sends OFF to every selected switch and verifies the reported OFF state.
+- Keep running creates a temporary snooze period.
+- If all switches are turned OFF manually while the notification is visible, the notification is cleared.
 
-## المدخلات
+## Inputs
 
-| Input | الافتراضي | الوظيفة |
+| Input | Default | Purpose |
 |---|---:|---|
-| Water / Irrigation Switches | — | Switch واحد أو أكثر للمراقبة |
-| Alert After | 10 دقائق | المدة التي تعتبر تشغيلًا طويلًا |
-| Snooze After Keep | 30 دقيقة | فترة منع إعادة التنبيه بعد Keep |
-| Notification Tag | long_running_water | يسمح بفصل إشعارات أكثر من نسخة |
-| Device to Notify | — | جهاز Companion App الذي يستقبل التنبيه |
+| Water / Irrigation Switches | — | One or more switches to monitor |
+| Alert After | 10 min | How long a switch may remain ON before the warning |
+| Snooze After Keep Running | 30 min | Suppresses new warnings after the user deliberately keeps water running |
+| Notification Tag | long_running_water | Allows multiple watchdog instances to use separate notification threads |
+| Device to Notify | — | Companion App device that receives the actionable notification |
 
-## التنفيذ خطوة بخطوة
+## Step-by-Step Execution
 
-### 1. Triggers الأساسية
+### Step 1 — Trigger Paths
 
-هناك ثلاث طرق للدخول:
+The Blueprint can start from three trigger paths:
 
-1. صمام ينتقل إلى ON ويبقى كذلك مدة **Alert After**.
-2. Watchdog كل 5 دقائق.
-3. Home Assistant Startup.
+1. A selected switch stays ON for the configured threshold.
+2. A five-minute periodic watchdog runs.
+3. Home Assistant starts.
 
-الـTrigger الدوري وStartup موجودان كطبقة احتياطية لأن `for:` لا يحتفظ بمؤقته عبر Restart/Reload.
+The periodic watchdog and startup path exist because Home Assistant does not preserve a state-trigger `for:` timer through restart or automation reload.
 
-### 2. التحقق من التشغيل الطويل
+### Step 2 — Confirm Long-running State
 
-في Trigger الصمام المباشر، الشرط يعتبر المدة قد تحققت.
+For the direct state trigger, the configured ON duration has already been satisfied.
 
-في Watchdog/Startup:
+For the watchdog and startup paths, the automation:
 
-- يقرأ كل Switch.
-- يفحص `last_changed`.
-- يقارن عمر حالة ON بالحد المطلوب.
-- لا يكمل إذا لم يجد صمامًا تجاوز المدة.
+- Expands all selected switches.
+- Checks which are currently ON.
+- Calculates the age of the current ON state from `last_changed`.
+- Continues only when at least one selected switch appears to have exceeded the configured threshold.
 
-### 3. إنشاء Action IDs فريدة
+### Step 3 — Create Unique Action IDs
 
-عند كل تشغيل ينشئ:
+Each automation run creates action IDs derived from `context.id`:
 
 - `WATER_STOP_<context.id>`
 - `WATER_KEEP_<context.id>`
 
-السبب: زر من Notification قديم لا يُفترض أن يتحكم في تشغيل أحدث.
+This prevents an old notification button from accidentally controlling a newer automation run.
 
-### 4. إرسال Critical Notification
+### Step 4 — Send the Critical Notification
 
-الرسالة تعرض أسماء الصمامات التي ما زالت ON والمدة التقريبية لكل واحد.
+The notification lists each selected switch that is still ON and shows its approximate ON duration.
 
-تحتوي على:
+It provides:
 
 - 🛑 **Stop all**
 - 💧 **Keep running**
 
-وتضع Notification Tag ثابتًا تختاره أنت بحيث يستبدل التنبيه الجديد القديم لنفس النسخة.
+A configurable notification tag is used so a newer warning can replace the older warning from the same Blueprint instance.
 
-### 5. انتظار قرار المستخدم
+### Step 5 — Wait for the User or for Manual Resolution
 
-ينتظر حتى 5 دقائق لأي واحد من:
+The automation waits up to five minutes for one of the following:
 
-- Stop.
-- Keep.
-- جميع الصمامات أصبحت OFF من نفسها/يدويًا.
+- Stop all.
+- Keep running.
+- All selected switches become OFF on their own or by manual control.
 
-### 6. عند Stop all
+### Step 6 — Stop All Path
 
-- يرسل `switch.turn_off` لجميع الصمامات.
-- ينتظر حتى 15 ثانية.
-- النجاح لا يعتمد على اكتمال Service Call فقط؛ يجب أن تكون جميع الحالات `off`.
-- عند النجاح يرسل Confirmation.
-- إذا لم يؤكد Home Assistant الإيقاف، يرسل Critical failure جديد.
+If Stop all is selected:
 
-### 7. عند Keep running
+1. OFF is sent to every selected switch.
+2. The automation waits up to 15 seconds.
+3. Success requires every selected switch to report `off`.
+4. The original warning is cleared.
+5. A confirmation is sent if shutdown is confirmed.
+6. If shutdown cannot be confirmed, a new critical failure notification is sent.
 
-- يمسح التنبيه القديم.
-- يرسل رسالة تؤكد أن التشغيل سيستمر.
-- ينتظر مدة Snooze.
+The automation therefore does not equate a completed service call with a confirmed shutdown.
 
-خلال هذه الفترة الأوتوميشن في `mode: single`، لذلك لا ينشئ تنبيهات مكررة.
+### Step 7 — Keep Running Path
 
-بعد انتهاء الـSnooze، يصبح الأوتوميشن حرًا؛ الـWatchdog الدوري يستطيع إعادة التنبيه إذا استمر الماء.
+If Keep running is selected:
 
-### 8. إذا أطفأت الماء يدويًا
+1. The original warning is cleared.
+2. A confirmation message is sent.
+3. The automation waits for the configured snooze duration.
 
-Trigger داخلي يراقب أن جميع الصمامات أصبحت `off`، ثم يمسح التنبيه دون إرسال أمر إضافي.
+Because the Blueprint uses `mode: single`, the snooze period intentionally prevents duplicate warnings during that period.
 
-### 9. إذا تجاهلت التنبيه
+After the snooze ends, the periodic watchdog can alert again if a selected switch is still ON.
 
-بعد خمس دقائق ينتهي انتظار الأزرار، **لكن التنبيه لا يُمسح تلقائيًا**. يبقى ظاهرًا، وبعد عودة الـWatchdog يمكن أن يحل تنبيه حديث بنفس الـTag محله.
+### Step 8 — Manual OFF Path
 
-## Restart / Reload
+If all selected switches become OFF while the action notification is waiting, the notification is cleared and no additional control command is sent.
 
-Home Assistant لا يحفظ زمن `for:` عبر Restart. الـWatchdog وStartup يقللان المشكلة، لكن هناك حد مهم:
+### Step 9 — No Response
 
-إذا أعيد إنشاء حالة الكيان بعد Restart فإن `last_changed` قد يبدأ من وقت جديد، وبالتالي لا يمكن ضمان معرفة مدة التشغيل قبل إعادة التشغيل.
+If the five-minute action wait expires without a response, the warning is intentionally not cleared. A future watchdog run can replace it using the same notification tag if the condition still exists.
 
-لهذا، للصمامات الحساسة استخدم أيضًا:
+## Restart and Reload Limitations
 
-- Hardware Auto-Close إن توفر.
-- Flow Sensor مستقل.
-- حد تشغيل داخلي في جهاز الصمام إن كان يدعم ذلك.
+The direct state-trigger `for:` timer does not survive Home Assistant restart or automation reload.
 
-## Critical Notification
+The startup and periodic watchdog reduce this risk, but they do not provide perfect persistence. If a device or integration restores the entity state with a new `last_changed` timestamp after startup, the automation cannot reconstruct the exact pre-restart ON duration.
 
-الـBlueprint يرسل Payload الخاص بـCritical على iOS. ظهور التنبيه كـCritical يعتمد أيضًا على صلاحيات Companion App ونظام التشغيل.
+For safety-critical water hardware, consider additional independent protection:
 
-## ما الذي يتم التحقق منه؟
+- Device-side auto-close.
+- Independent flow monitoring.
+- A mechanical shutoff strategy appropriate to the installation.
 
-**يتم التحقق:** أن Home Assistant يرى جميع الـSwitches المختارة `off`.
+## Critical Notification Notes
 
-**لا يمكن لهذا الـBlueprint وحده إثبات:** أن الماء توقف فعليًا خلف الصمام. التأكد الفيزيائي يحتاج Flow Sensor أو Feedback مستقل.
+The Blueprint sends the critical-notification payload used by the Home Assistant Companion App. Actual critical-alert behavior also depends on the mobile operating system and the permissions granted to the app.
 
-## اختبار آمن
+## What Is Verified
 
-1. استخدم Switch تجريبي أو صمام تحت المراقبة.
-2. ضع Alert After على 5 دقائق.
-3. انتظر التنبيه.
-4. جرّب Keep.
-5. أعد الاختبار واضغط Stop.
-6. تحقق يدويًا أن الماء توقف.
-7. افصل جهازًا/اجعله غير متاح في اختبار مراقب للتأكد أن Failure Alert يظهر.
+The Blueprint verifies that Home Assistant sees all selected switches as `off`.
+
+It **cannot** prove by switch state alone that water has physically stopped. Physical confirmation requires an independent flow or position signal.
+
+## Safe Live-Test Checklist
+
+1. Use a test switch or a supervised valve.
+2. Set Alert After to five minutes.
+3. Wait for the actionable notification.
+4. Test Keep running and confirm the snooze behavior.
+5. Test again and select Stop all.
+6. Verify both Home Assistant state and the physical water result.
+7. If possible, test an unavailable-device scenario to confirm that shutdown failure produces a critical warning.
 
 ## Import
 

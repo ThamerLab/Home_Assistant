@@ -1,21 +1,14 @@
 # Dashboards
 
-هذا المجلد مخصص لـ:
+This folder is reserved for reusable Home Assistant dashboard definitions.
 
-- Lovelace dashboards
-- Mushroom cards
-- Vertical stack layouts
-- Mini graph cards
-- Home overview dashboards
-- Irrigation dashboards
-- Climate dashboards
+Future dashboard content should include:
 
-Suggested structure:
+- A clear purpose.
+- Required custom cards or integrations.
+- Installation instructions.
+- Screenshots or dedicated visuals when useful.
+- A safe example configuration without private entity IDs.
+- Validation or review instructions appropriate to the dashboard format.
 
-```text
-irrigation/
-climate/
-security/
-energy/
-mobile/
-```
+The repository should not describe a dashboard as production-ready until the actual dashboard files have been added and reviewed.

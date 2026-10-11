@@ -70,8 +70,8 @@ blueprint:
 
 fields:
   duration:
-    name: "مدة التشغيل"
-    description: "مدة تشغيل السقاية اليدوية بالدقائق."
+    name: "Duration"
+    description: "Manual irrigation runtime in minutes."
     required: true
     default: 10
     selector:

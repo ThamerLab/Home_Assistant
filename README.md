@@ -11,7 +11,7 @@
 ![Docs](https://img.shields.io/badge/Docs-Step--by--step-8B5CF6)
 ![Country](https://img.shields.io/badge/Built%20in-Saudi%20Arabia-10B981)
 
-**Reusable Home Assistant Blueprints with detailed Arabic documentation, dedicated visuals, failure handling, and automated validation.**
+**Reusable Home Assistant Blueprints with detailed English documentation, dedicated visuals, failure handling, and automated validation.**
 
 [Blueprints](#-blueprints) · [Automation Catalog](./docs/AUTOMATION_CATALOG.md) · [Full Audit](./docs/AUDIT_2026-10-11.md) · [Installation](./docs/INSTALLATION.md) · [Validation](./docs/VALIDATION.md)
 
@@ -19,20 +19,20 @@
 
 ---
 
-## 🎯 فلسفة المستودع
+## 🎯 Repository Philosophy
 
-هذا المستودع لا يحفظ نسخة خاصة من منزل واحد. بدل ذلك، يحوّل الأتمتة العملية إلى **Blueprints عامة**:
+This repository does not preserve a private copy of one home. Instead, it turns practical Home Assistant automations into **reusable public Blueprints**:
 
-- بدون Entity IDs خاصة.
-- بدون IPs أو Tokens أو Device IDs خاصة.
-- كل Blueprint له شرح مستقل خطوة بخطوة.
-- كل Blueprint له صورة مستقلة.
-- كل Wait له Timeout واضح.
-- أتمتة الماء والأجهزة الفعلية تتضمن Failure paths بدل افتراض النجاح.
-- التغييرات تمر عبر Static Validation + Home Assistant Config Check قبل دمجها.
+- No private entity IDs.
+- No private IP addresses, tokens, or device IDs.
+- Every Blueprint has its own step-by-step guide.
+- Every Blueprint has its own dedicated image.
+- Every wait has an explicit timeout.
+- Hardware-facing automations include failure paths instead of assuming success.
+- Changes must pass static validation and a real Home Assistant configuration check before they are merged.
 
 > [!IMPORTANT]
-> نجاح CI يثبت صحة YAML/Blueprint schema وقابلية تحميل Config الاختبار. لا يوجد اختبار Repository يستطيع ضمان استجابة جهاز مادي أو شبكة Zigbee/Wi-Fi بنسبة 100%؛ لذلك يوجد **Live Test Checklist** في شرح كل Blueprint حساس.
+> A green CI run proves that YAML, Blueprint structure, input expansion, documentation rules, and the Home Assistant configuration test all pass. It cannot guarantee that a physical Zigbee, Wi-Fi, AirPlay, water, or lighting device will respond perfectly in every real-world condition. Each hardware-facing Blueprint therefore includes a live-test checklist.
 
 ## 🧩 Blueprints
 
@@ -49,15 +49,15 @@
 `smart_irrigation.yaml`
 
 - Sunrise / Sunset / Custom / Fixed interval.
-- يمنع بدء دورة فوق صمام شغال مسبقًا.
-- Verify ON.
-- يفحص **كل** Flow Sensor مختار.
-- No-flow shutdown.
-- Manual/early-stop detection.
-- Verify OFF.
-- Estimated water usage.
+- Blocks a scheduled run if a selected valve is already ON.
+- Verifies startup.
+- Checks every selected flow sensor.
+- Stops on no-flow.
+- Detects early or manual shutdown.
+- Verifies final OFF state.
+- Estimates water usage from the sampled flow rate.
 
-[📖 شرح تفصيلي](./blueprints/automation/irrigation/SMART_IRRIGATION.md)
+[📖 Detailed guide](./blueprints/automation/irrigation/SMART_IRRIGATION.md)
 
 </td>
 <td width="50%" valign="top">
@@ -68,15 +68,15 @@
 
 `long_running_water_safety.yaml`
 
-- Alert بعد مدة ON طويلة.
-- Critical notification.
-- Stop all / Keep running.
-- Verify OFF.
-- 5-minute watchdog.
+- Alerts after a selected switch has remained ON too long.
+- Critical notification support.
+- Stop all / Keep running actions.
+- Verifies OFF state after a stop command.
+- Five-minute watchdog.
 - Startup fallback.
-- Unique notification action IDs.
+- Unique actionable-notification IDs per run.
 
-[📖 شرح تفصيلي](./blueprints/automation/irrigation/WATER_SAFETY.md)
+[📖 Detailed guide](./blueprints/automation/irrigation/WATER_SAFETY.md)
 
 </td>
 </tr>
@@ -97,10 +97,10 @@
 - Music Assistant player only.
 - Exact library URI.
 - `enqueue: replace`.
-- Verify `playing` + exact URI.
-- No 1–2 hour wait.
+- Verifies `playing` plus the exact requested URI.
+- Does not keep the automation running for the full recitation.
 
-[📖 شرح تفصيلي](./blueprints/automation/quran/SUNRISE_SUNSET.md)
+[📖 Detailed guide](./blueprints/automation/quran/SUNRISE_SUNSET.md)
 
 </td>
 <td width="50%" valign="top">
@@ -111,11 +111,11 @@
 
 `music_assistant_quran_toggle.yaml`
 
-- Same URI Playing → Stop + Verify.
-- Same URI Paused → Resume + Verify.
-- Other content → Replace Queue + Play + Verify.
+- Same URI playing → Stop and verify.
+- Same URI paused → Resume and verify.
+- Different content → Replace queue, play, and verify.
 
-[📖 شرح تفصيلي](./blueprints/script/quran/README.md)
+[📖 Detailed guide](./blueprints/script/quran/README.md)
 
 </td>
 </tr>
@@ -133,14 +133,14 @@
 
 `outside_lights_dusk_dawn.yaml`
 
-- Sun elevation crossing.
+- Sun-elevation crossing.
 - ON at dusk / OFF at dawn.
-- Verify first attempt.
-- Retry once.
-- Failure notification.
-- No startup force-sync.
+- Verifies the first command.
+- Retries once.
+- Sends a failure notification if the second attempt still cannot be confirmed.
+- Does not force a state during Home Assistant startup.
 
-[📖 شرح تفصيلي](./blueprints/automation/lighting/DUSK_TO_DAWN.md)
+[📖 Detailed guide](./blueprints/automation/lighting/DUSK_TO_DAWN.md)
 
 </td>
 <td width="50%" valign="top">
@@ -151,13 +151,13 @@
 
 `outside_light_attention.yaml`
 
-- Night + OFF / Day + ON.
+- Night + OFF / Day + ON mismatch detection.
 - Configurable mismatch duration.
-- Fix / Keep.
-- Unique Action IDs.
-- Re-check before applying Fix.
+- Fix / Keep actions.
+- Unique action IDs.
+- Re-checks current conditions before applying Fix.
 
-[📖 شرح تفصيلي](./blueprints/automation/lighting/ABNORMAL_STATE_ALERT.md)
+[📖 Detailed guide](./blueprints/automation/lighting/ABNORMAL_STATE_ALERT.md)
 
 </td>
 </tr>
@@ -175,13 +175,13 @@
 
 `available_updates_notification.yaml`
 
-- Daily check.
-- Sends only when updates exist.
-- User-selected Priority updates.
-- Other updates grouped automatically.
-- Opens Home Assistant Updates page.
+- Daily update check.
+- Sends only when updates are available.
+- User-selected priority update entities.
+- Groups all remaining updates automatically.
+- Opens the Home Assistant Updates page.
 
-[📖 شرح تفصيلي](./blueprints/automation/system/README.md)
+[📖 Detailed guide](./blueprints/automation/system/README.md)
 
 </td>
 <td width="50%" valign="top">
@@ -192,12 +192,12 @@
 
 `notify_leaving_zone.yaml`
 
-- Official Home Assistant logic mirrored with attribution.
-- Person leaves selected Zone.
-- Companion App notification.
-- Suitable for consent-based household presence alerts.
+- Based on the official Home Assistant Zone Notification logic.
+- Detects a selected person leaving a selected zone.
+- Sends a Companion App notification.
+- Intended for consent-based presence alerts.
 
-[📖 شرح تفصيلي](./blueprints/automation/presence/README.md)
+[📖 Detailed guide](./blueprints/automation/presence/README.md)
 
 </td>
 </tr>
@@ -213,33 +213,21 @@
 
 `manual_irrigation_safe_run.yaml`
 
-مدة التشغيل تُطلب عند كل تشغيل للسكريبت، مع Verify ON، Flow protection، Early-stop detection، Final OFF verification، وNotifications اختيارية.
+The runtime is requested each time the script is started. It includes startup verification, optional flow protection, early-stop detection, final OFF verification, and optional notifications.
 
-[📖 شرح تفصيلي](./blueprints/script/irrigation/README.md)
+[📖 Detailed guide](./blueprints/script/irrigation/README.md)
 
 ## 📚 Automation Catalog
 
-لشرح جميع الأنظمة نقطة بنقطة في مكان واحد:
+For a single step-by-step explanation of every reusable automation and script:
 
 **[docs/AUTOMATION_CATALOG.md](./docs/AUTOMATION_CATALOG.md)**
 
-يشمل:
-
-1. Quran sunrise/sunset.
-2. Scheduled irrigation.
-3. Available updates.
-4. Outdoor dusk/dawn.
-5. Outdoor abnormal-state alert.
-6. Long-running water safety.
-7. Manual irrigation.
-8. Quran safe toggle.
-9. Zone exit notification.
-
 ## 🚀 Import
 
-كل صفحة شرح تحتوي زر Import مباشر.
+Every detailed guide contains a direct Import button.
 
-الطريقة اليدوية:
+Manual import path:
 
 ```text
 Home Assistant
@@ -249,73 +237,25 @@ Home Assistant
 → Import Blueprint
 ```
 
-راجع [Installation Guide](./docs/INSTALLATION.md).
+See the [Installation Guide](./docs/INSTALLATION.md).
 
 ## ✅ Validation
 
-التغييرات تخضع إلى Workflow:
+All relevant changes run:
 
 `.github/workflows/validate-blueprints.yml`
 
-ويشمل:
+The workflow checks YAML parsing, Blueprint metadata, `!input` integrity, wait timeouts, documentation/image coverage, SVG/XML validity, local links, privacy patterns, and Home Assistant `check_config`.
 
-- YAML parse.
-- Blueprint metadata.
-- `!input` integrity.
-- Wait timeouts.
-- Dedicated docs/images coverage.
-- SVG/XML validation.
-- Private-home-data scan داخل Blueprints.
-- Home Assistant `check_config` مع Instantiation تجريبية لكل Blueprint.
-
-التفاصيل والحالة الحالية:
-[docs/VALIDATION.md](./docs/VALIDATION.md)
-
-## 🗂️ Structure
-
-```text
-Home_Assistant/
-├── assets/
-├── blueprints/
-│   ├── automation/
-│   │   ├── irrigation/
-│   │   │   ├── smart_irrigation.yaml
-│   │   │   └── long_running_water_safety.yaml
-│   │   ├── lighting/
-│   │   │   ├── outside_lights_dusk_dawn.yaml
-│   │   │   └── outside_light_attention.yaml
-│   │   ├── presence/
-│   │   │   └── notify_leaving_zone.yaml
-│   │   ├── quran/
-│   │   │   └── music_assistant_sunrise_sunset.yaml
-│   │   └── system/
-│   │       └── available_updates_notification.yaml
-│   └── script/
-│       ├── irrigation/
-│       │   └── manual_irrigation_safe_run.yaml
-│       └── quran/
-│           └── music_assistant_quran_toggle.yaml
-├── docs/
-│   ├── AUTOMATION_CATALOG.md
-│   ├── INSTALLATION.md
-│   └── VALIDATION.md
-├── tests/
-└── .github/workflows/
-```
+See [docs/VALIDATION.md](./docs/VALIDATION.md).
 
 ## 🔐 Security & Privacy
 
-- لا ترفع `secrets.yaml`.
-- لا تضع Tokens أو Passwords أو Webhook secrets.
-- لا تضع Entity IDs أو Device IDs أو IPs الخاصة بمنزلك داخل Blueprint عام.
-- Location/presence automations تستخدم فقط بيانات تم إعدادها مسبقًا داخل Home Assistant وبموافقة الشخص المعني.
-- اختبر الماء والأجهزة الفعلية تحت المراقبة قبل الاعتماد.
-
-## 🧱 Other folders
-
-`dashboards/` و`packages/` ما زالا مساحات تجهيز؛ لا يتم ادعاء وجود Dashboard/Package جاهز قبل إضافته واختباره.
-
-`forms/` يحتوي أداة مستقلة وليست جزءًا من Blueprint validation.
+- Never commit `secrets.yaml`.
+- Never commit tokens, passwords, API keys, or webhook secrets.
+- Never hard-code private home entity IDs, device IDs, or LAN addresses in public Blueprints.
+- Use location/presence automations only with appropriate consent.
+- Test water and other physical-device automations under supervision before relying on them.
 
 ---
 

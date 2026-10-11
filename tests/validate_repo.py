@@ -224,6 +224,11 @@ def check_repo_for_private_values(errors: list[str]) -> None:
             if pattern.search(text):
                 errors.append(f"{rel}: contains {label}")
 
+        if re.search(r"[\u0600-\u06FF]", text):
+            errors.append(
+                f"{rel}: contains Arabic-script text; public repository content must be English-only"
+            )
+
 
 def main() -> int:
     errors: list[str] = []
@@ -348,7 +353,7 @@ def main() -> int:
                 errors.append(
                     f"{meta['doc']}: must embed dedicated image {meta['image']}"
                 )
-            if "خطوة" not in doc_text:
+            if "step-by-step" not in doc_text.lower():
                 errors.append(
                     f"{meta['doc']}: detailed step-by-step section is required"
                 )

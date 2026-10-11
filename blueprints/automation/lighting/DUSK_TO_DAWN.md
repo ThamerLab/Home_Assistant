@@ -4,71 +4,96 @@
   <img src="../../../assets/outdoor-dusk-dawn.svg" alt="Outdoor Lights Dusk to Dawn" width="100%">
 </p>
 
-Blueprint للتحكم في الإنارة الخارجية عند **عبور ارتفاع الشمس** حدًا تختاره، وليس بناءً على وقت ثابت.
+This Blueprint controls an outdoor light when **sun elevation crosses** a user-selected threshold. It does not use a fixed clock time.
 
-## المدخلات
+## Inputs
 
-| Input | الافتراضي | الوظيفة |
+| Input | Default | Purpose |
 |---|---:|---|
-| Outdoor Light | — | كيان `light` المراد التحكم فيه |
-| Sun Elevation Threshold | 5° | الحد الذي يفصل منطق المساء/النهار |
-| Notification Devices | لا يوجد | أجهزة تتلقى خطأ عدم استجابة اللمبة |
+| Outdoor Light | — | The `light` entity to control |
+| Sun Elevation Threshold | 5° | The elevation boundary between dusk and dawn actions |
+| Notification Devices | None | Optional Companion App devices for command-failure alerts |
 
-## التنفيذ خطوة بخطوة
+## Step-by-Step Execution
 
-### المساء
+### Step 1 — Dusk Trigger
 
-1. يراقب `sun.sun` وAttribute اسمها `elevation`.
-2. عندما تنزل القيمة من أعلى الحد إلى أسفله، يعمل Trigger `dusk`.
-3. يرسل `light.turn_on`.
-4. ينتظر حتى 10 ثوانٍ لتأكيد أن اللمبة أصبحت `on`.
-5. إذا لم تتأكد:
-   - ينتظر 5 ثوانٍ.
-   - يعيد `light.turn_on` مرة واحدة.
-   - ينتظر تأكيدًا آخر حتى 10 ثوانٍ.
-6. إذا لم تتأكد بعد المحاولة الثانية:
-   - ينشئ Persistent Notification.
-   - يرسل Push Notification للأجهزة المختارة.
+The automation watches the `elevation` attribute of `sun.sun`.
 
-### الصباح
+When the value crosses from above the configured threshold to below it, the `dusk` trigger fires.
 
-نفس الخطوات، لكن عند ارتفاع الشمس فوق الحد:
+### Step 2 — Send ON
 
-- `light.turn_off`
-- تحقق `off`
-- Retry واحد
-- تنبيه إذا لم يتأكد الإطفاء.
+The automation calls `light.turn_on` for the selected outdoor light.
 
-## لماذا لا يوجد Trigger عند Home Assistant Startup؟
+### Step 3 — Verify ON
 
-متعمد.
+It waits up to ten seconds for the selected light to report `on`.
 
-لو شغلت اللمبة يدويًا نهارًا أو طفيتها يدويًا ليلًا، لا نريد Restart لـHome Assistant أن يلغي قرارك فورًا.
+If the state is confirmed, the dusk sequence ends successfully.
 
-الأوتوميشن يتصرف فقط عند **عبور الشمس للحد** مرة أخرى.
+### Step 4 — Retry Once
 
-## ماذا يعني Manual Priority؟
+If the first ON verification times out:
 
-- إذا الأوتوميشن شغّل اللمبة مساءً وبعدها أنت طفيتها، تبقى مطفأة.
-- إذا الأوتوميشن طفاها صباحًا وبعدها أنت شغلتها، تبقى شغالة.
-- لا يوجد Loop يجبرها باستمرار.
+1. The automation waits five seconds.
+2. It sends `light.turn_on` again.
+3. It waits up to another ten seconds for `on`.
 
-إذا أردت فقط أن تُنَبَّه عند هذا الاختلاف بدون إجبار، استخدم معه:
-[Outdoor Light — Abnormal State Alert](./ABNORMAL_STATE_ALERT.md).
+### Step 5 — Report Dusk Failure
 
-## حدود التصميم
+If the second attempt still cannot be confirmed:
 
-- Numeric-state trigger يعمل عند عبور الحد، وليس عند مجرد وجود الشمس تحت/فوق الحد بعد Reload.
-- الاعتماد على `sun.sun` يفترض أن Location/Timezone في Home Assistant صحيحة.
-- حالة `on/off` تؤكد ما يبلغه التكامل، وليس بالضرورة قياس الضوء فعليًا.
+- A persistent notification is created.
+- Each configured notification device receives a failure notification.
 
-## اختبار آمن
+### Step 6 — Dawn Trigger
 
-1. استخدم نسخة تجريبية وحدًا قريبًا من Elevation الحالية أو Light تجريبية.
-2. راقب Trace عند عبور الحد.
-3. تحقق من First Attempt.
-4. جرّب جهازًا غير مستجيب في بيئة آمنة للتأكد من Retry + Failure Notification.
-5. بعد نجاح الاختبار اختر اللمبة الخارجية الفعلية.
+When sun elevation crosses from below the threshold to above it, the `dawn` trigger fires.
+
+### Step 7 — Send OFF and Verify
+
+The dawn path mirrors the dusk logic:
+
+1. Send `light.turn_off`.
+2. Wait up to ten seconds for `off`.
+3. If needed, wait five seconds and retry once.
+4. Verify `off` again.
+5. Report a persistent/mobile failure if the second attempt is not confirmed.
+
+## Why There Is No Startup Trigger
+
+This is intentional.
+
+If the automation turns the light ON at night and the user later turns it OFF manually, a Home Assistant restart should not immediately reverse that decision.
+
+The same principle applies during the day: if the user manually turns the light ON after the morning OFF action, startup does not force it OFF again.
+
+The automation acts only when sun elevation **crosses** the configured boundary again.
+
+## Manual Priority
+
+This design gives the user practical manual priority between sun-boundary events:
+
+- Scheduled ON at dusk → user turns it OFF → it stays OFF.
+- Scheduled OFF at dawn → user turns it ON → it stays ON.
+
+If you want to be notified about those unusual states without forcing a correction, pair this Blueprint with [Outdoor Light — Abnormal State Alert](./ABNORMAL_STATE_ALERT.md).
+
+## Limits
+
+- A numeric-state trigger reacts to crossing the threshold, not merely to Home Assistant starting while the sun is already above or below it.
+- Correct behavior depends on Home Assistant location and timezone configuration.
+- A reported `on` or `off` state comes from the integration and is not a physical light sensor measurement.
+
+## Safe Live-Test Checklist
+
+1. Use a test light when possible.
+2. Choose a threshold near the current sun elevation or use a controlled test configuration.
+3. Confirm the first state change.
+4. Review the automation trace.
+5. Test a non-responsive device in a safe setup to verify retry and failure notifications.
+6. Only after testing should you apply the Blueprint to the production outdoor light.
 
 ## Import
 

@@ -4,92 +4,92 @@
   <img src="../../../assets/zone-notification.svg" alt="Zone Exit Notification Blueprint" width="100%">
 </p>
 
-Blueprint لإرسال إشعار عندما يغادر كيان `person` منطقة `zone` محددة.
+This Blueprint sends a notification when a selected `person` entity leaves a selected `zone`.
 
-المنطق مأخوذ من Blueprint **Zone Notification** الرسمي المضمّن في Home Assistant، مع الاحتفاظ بنسبة المصدر في ملف YAML.
+Its core logic is based on Home Assistant's official built-in **Zone Notification** Blueprint. The YAML file preserves attribution to the upstream Home Assistant project.
 
-## الاستخدامات
+## Purpose
 
-- إشعار خروج فرد من المنزل.
-- إشعار مغادرة طفل/سائق/عامل/عاملة لمنطقة محددة عندما يكون تتبع الموقع مفعّلًا بموافقته.
-- إشعار مغادرة موظف أو مركبة من Zone إذا كان تمثيلها داخل Home Assistant مناسبًا.
+Use this Blueprint when you already have a Person entity and a Zone configured in Home Assistant and want a notification when that Person leaves the Zone.
 
-الـBlueprint **لا ينشئ تتبعًا جديدًا** ولا يحصل على موقع شخص من تلقاء نفسه؛ يعتمد فقط على `person` الموجود أصلًا.
+The Blueprint does **not** create location tracking by itself. It only reacts to state changes from an existing Home Assistant Person entity.
 
-## المدخلات
+## Inputs
 
-| Input | الوظيفة |
+| Input | Purpose |
 |---|---|
-| Person | كيان `person.*` |
-| Zone | كيان `zone.*` |
-| Device to notify | جهاز Companion App |
+| Person | Existing `person.*` entity |
+| Zone | Existing `zone.*` entity |
+| Device to notify | Companion App device that receives the notification |
 
-## التنفيذ خطوة بخطوة
+## Step-by-Step Execution
 
-### 1. مراقبة Person
+### Step 1 — Watch the Person State
 
-كل تغير في حالة Person يطلق Trigger.
+Any state change of the selected Person triggers the automation.
 
-### 2. معرفة اسم الـZone
+### Step 2 — Resolve the Zone State
 
-يقرأ اسم Zone المختارة ويخزنه في `zone_state`.
+The automation reads the selected zone and stores its display name in `zone_state`.
 
-### 3. التحقق أنه **خرج** فعلًا
+### Step 3 — Confirm That the Person Actually Left
 
-لا يرسل إشعارًا لمجرد أي تغير.
+The automation does not notify on every Person state change.
 
-للـHome Zone:
+For the Home zone:
 
-- الحالة السابقة يجب أن تكون `home`.
-- الحالة الجديدة يجب ألا تكون `home`.
+- The previous state must be `home`.
+- The new state must not be `home`.
 
-لأي Zone أخرى:
+For any other zone:
 
-- الحالة السابقة يجب أن تساوي اسم الـZone.
-- الحالة الجديدة يجب أن تختلف عنها.
+- The previous state must match the selected zone name.
+- The new state must differ from that zone name.
 
-### 4. إرسال الإشعار
+### Step 4 — Send the Notification
 
-يرسل اسم الشخص + المنطقة التي غادرها إلى جهاز Companion App المختار.
+The selected Companion App device receives a message containing the person's display name and the zone that was left.
 
-## مثال: تنبيه خروج العاملة
+## Example Setup
 
-1. أنشئ Device Tracker بالطريقة التي وافق الشخص على استخدامها.
-2. اربطه بكيان Person.
-3. استورد الـBlueprint.
-4. اختر Person.
-5. اختر `zone.home`.
-6. اختر جوالك.
-7. احفظ الأوتوميشن.
+1. Configure an appropriate Device Tracker.
+2. Link it to a Home Assistant Person entity.
+3. Import this Blueprint.
+4. Select the Person.
+5. Select the Zone.
+6. Select the phone that should receive notifications.
+7. Save the automation.
+8. Test a real or controlled zone exit and review the automation trace.
 
-عند خروج Person من Home Zone، يصلك إشعار.
+## Accuracy and Timing
 
-## دقة الموقع
+This Blueprint does not determine location accuracy. Notification timing depends on:
 
-الدقة لا يحددها هذا الـBlueprint. تعتمد على:
+- The tracked device.
+- Location permissions.
+- Background location behavior.
+- GPS, Wi-Fi, and cellular positioning.
+- Zone radius.
+- Device Tracker update frequency.
+- How quickly the integration reports changes to Home Assistant.
 
-- هاتف الشخص.
-- صلاحيات Location.
-- Background refresh.
-- GPS/Wi-Fi/Cell location.
-- حجم Radius للـZone.
-- سرعة وصول تحديث Device Tracker إلى Home Assistant.
+A delayed tracker update can therefore produce a delayed zone-exit notification.
 
-قد يتأخر إشعار الخروج إذا كان تحديث الموقع متأخرًا.
+## Privacy
 
-## الخصوصية
+- Use location tracking only with appropriate consent.
+- Do not publish person names, device IDs, or private location data in a public repository.
+- Keep Person and Device Tracker configuration inside the private Home Assistant instance.
 
-- استخدم تتبع الموقع فقط بموافقة الشخص المعني.
-- لا تضع اسم الشخص أو Device ID في هذا المستودع العام.
-- إعداد Person/Tracker يبقى في Home Assistant الخاص بك.
+## Safe Live-Test Checklist
 
-## اختبار
-
-1. أنشئ Zone اختبار أو استخدم Home.
-2. تأكد أن Person يظهر داخلها.
-3. اختبر الخروج فعليًا أو باستخدام Tracker تجريبي.
-4. راجع Trace للتأكد أن `from_state` كان داخل الـZone و`to_state` خارجها.
-5. تأكد من وصول التنبيه.
+1. Create a test zone or use an existing zone.
+2. Confirm that the selected Person currently appears inside that zone.
+3. Perform a controlled exit.
+4. Review the automation trace.
+5. Confirm that `from_state` represented the selected zone and `to_state` represented a different state.
+6. Confirm that the notification arrives on the selected device.
+7. Adjust tracker or zone settings if the location update is too slow or inaccurate.
 
 ## Import
 
@@ -99,7 +99,7 @@ https://raw.githubusercontent.com/ThamerLab/Home_Assistant/main/blueprints/autom
 
 [![Import Zone Exit Notification](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FThamerLab%2FHome_Assistant%2Fmain%2Fblueprints%2Fautomation%2Fpresence%2Fnotify_leaving_zone.yaml)
 
-## المصدر
+## Upstream Source
 
-Upstream: Home Assistant Core built-in `notify_leaving_zone.yaml`.  
+Home Assistant Core built-in `notify_leaving_zone.yaml`.  
 Copyright Home Assistant contributors; Apache License 2.0.

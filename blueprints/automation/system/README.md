@@ -4,71 +4,82 @@
   <img src="../../../assets/updates.svg" alt="Available Updates Notification" width="100%">
 </p>
 
-Blueprint يرسل ملخصًا يوميًا فقط عندما يكون لدى Home Assistant كيان `update.*` واحد أو أكثر في حالة `on`، وهي الحالة التي تعني وجود تحديث متاح.
+This Blueprint sends a daily summary only when one or more Home Assistant `update.*` entities are in the `on` state, meaning an update is available.
 
-## لماذا Blueprint بدل Regex ثابت؟
+## Why Explicit Priority Selection?
 
-بعض الأوتوميشنات تصنف الأولوية من اسم `friendly_name`. هذا هش لأن الأسماء تتغير حسب التكامل أو اللغة.
+Classifying update importance by matching words in `friendly_name` is fragile because names vary by integration, language, and version.
 
-هنا أنت تختار بنفسك **Priority Update Entities** من الواجهة، والبقية تُدرج تلقائيًا تحت Other updates.
+This Blueprint lets the user explicitly choose **Priority Update Entities**. Every other available update is automatically grouped under Other updates.
 
-## المدخلات
+## Inputs
 
-| Input | الافتراضي | الوظيفة |
+| Input | Default | Purpose |
 |---|---:|---|
-| Notification Time | 09:30 | وقت الفحص اليومي |
-| Priority Update Entities | لا يوجد | تحديثات تريد إظهارها أولًا |
-| Notification Devices | — | جهاز أو عدة أجهزة Companion App |
-| Notification Tag | home_assistant_updates | استبدال إشعار اليوم السابق بدل تكديسه |
+| Notification Time | 09:30 | Daily time to check for updates |
+| Priority Update Entities | None | Update entities that should appear first |
+| Notification Devices | — | One or more Companion App devices |
+| Notification Tag | home_assistant_updates | Replaces the previous summary instead of stacking duplicates |
 
-## التنفيذ خطوة بخطوة
+## Step-by-Step Execution
 
-### 1. Trigger يومي
+### Step 1 — Daily Trigger
 
-يعمل مرة في الوقت المحدد.
+The automation runs once at the configured notification time.
 
-### 2. شرط وجود تحديث
+### Step 2 — Check for Available Updates
 
-يفحص جميع `states.update`.
+It evaluates all `update.*` entities.
 
-إذا لم يوجد أي Entity حالتها `on`:
+If none are `on`:
 
-- ينتهي الأوتوميشن.
-- لا يرسل إشعارًا فارغًا.
+- The automation ends.
+- No empty notification is sent.
 
-### 3. بناء مجموعتين
+### Step 3 — Build Priority and Other Groups
 
-من التحديثات المتاحة فقط:
+Only currently available updates are considered.
 
-- **Priority:** أي Entity اخترتها في Priority Update Entities.
-- **Other:** كل Update متاح آخر.
+Each available update is placed into one of two groups:
 
-### 4. إنشاء الرسالة
+- **Priority** — the entity was selected in Priority Update Entities.
+- **Other** — every other available update.
 
-يعرض اسم كل Update متاح تحت مجموعته.
+### Step 4 — Build the Summary
 
-### 5. إرسال الإشعار
+The automation lists each update by its display name under the appropriate group.
 
-يرسله لكل جهاز اخترته مع:
+### Step 5 — Send the Notification
 
-- عدد التحديثات في العنوان.
-- Tag ثابت.
-- رابط `/config/updates` لفتح شاشة التحديثات.
+The summary is sent to every selected Companion App device.
 
-## ما الذي لا يفعله؟
+The notification contains:
 
-- لا يثبت تحديثات.
-- لا يضغط Update تلقائيًا.
-- لا يعيد تشغيل Home Assistant.
-- لا يعتبر كل تحديث Critical؛ أنت تحدد Priority بنفسك.
+- The total number of available updates in the title.
+- Priority and Other sections when relevant.
+- A notification tag so newer summaries replace older ones.
+- A URL that opens the Home Assistant Updates page.
 
-## اختبار
+## What It Does Not Do
 
-1. أنشئ Automation بالـBlueprint.
-2. اختر وقتًا بعد دقائق قليلة من الوقت الحالي للاختبار.
-3. تأكد أن لديك Update entity في حالة `on`.
-4. تحقق أن الرسالة ظهرت ومجموعات Priority/Other صحيحة.
-5. بعد ذلك أعد الوقت إلى الوقت اليومي المطلوب.
+This Blueprint does not:
+
+- Install updates.
+- Restart Home Assistant.
+- Automatically classify every update as critical.
+- Modify update entities.
+
+It is a notification-only workflow.
+
+## Safe Test Checklist
+
+1. Create an automation from the Blueprint.
+2. Select one or more notification devices.
+3. Select any update entities you want treated as Priority.
+4. Temporarily set the notification time a few minutes ahead.
+5. Confirm that at least one `update.*` entity is currently `on`.
+6. Verify that the message arrives and the grouping is correct.
+7. Restore the desired daily notification time.
 
 ## Import
 

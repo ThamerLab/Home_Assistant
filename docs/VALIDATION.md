@@ -4,56 +4,59 @@
 
 **MERGE GATE ACTIVE**
 
-لا يتم دمج أي تغيير في الـBlueprints إلى `main` إلا إذا نجح **آخر Commit في الـPR** في الاختبارين الآتيين:
+A Blueprint change is not considered ready for `main` until the **latest commit in the pull request** passes both validation jobs:
 
 1. **Repository policy & static validation**
 2. **Home Assistant 2026.9.4 config check**
 
 Workflow:
+
 `.github/workflows/validate-blueprints.yml`
 
-الـCI يعاد تلقائيًا عند أي تعديل على Blueprints أو Docs أو Assets أو Tests، لذلك النجاح في Commit قديم لا يكفي لدمج Commit أحدث.
+The workflow runs again when relevant Blueprints, documentation, assets, tests, or workflow files change. A successful run for an older commit does not validate a newer commit.
 
-## 1. Static repository validation
+## 1. Repository Policy & Static Validation
 
-الملف:
+Validator:
+
 `tests/validate_repo.py`
 
-يفحص تلقائيًا:
+It automatically checks:
 
-- كل Blueprint YAML يمكن Parse له مع دعم `!input`.
-- عدد الـBlueprints الفعلي يطابق Validation map.
-- `blueprint.name` موجود.
-- `blueprint.domain` صحيح: automation أو script.
-- `description` موجود.
-- `author` موجود.
-- `source_url` يشير إلى نفس الملف داخل هذا المستودع.
-- `homeassistant.min_version` موجود بصيغة `X.Y.Z`.
-- كل `!input` مستخدم معرف داخل `blueprint.input`.
-- لا يوجد `wait_template` أو `wait_for_trigger` بدون Timeout.
-- Blueprints المياه والإنارة لا تستخدم `mode: restart`.
-- Template Trigger لا يستخدم Variable متاح فقط وقت Actions؛ أي قيمة مطلوبة عند إنشاء الـTrigger يجب أن تأتي عبر `trigger_variables`.
-- كل Blueprint له **صورة مخصصة وفريدة**.
-- كل صورة SVG قابلة للـXML parsing.
-- كل Blueprint له **شرح مخصص**.
-- الشرح يذكر ملف الـBlueprint نفسه.
-- الشرح يضم الصورة المخصصة.
-- الشرح يحتوي قسمًا خطوة بخطوة وبحد أدنى كافٍ من التفاصيل.
-- كل Blueprint مذكور في Root README.
-- كل Blueprint مذكور في Blueprint Catalog.
-- الروابط والصور المحلية داخل ملفات Markdown تشير إلى ملفات موجودة فعليًا.
-- لا توجد أنماط البيانات المنزلية الخاصة المعروفة داخل ملفات النص العامة، مثل LAN IPs أو أسماء كيانات المنزل الخاصة أو عناوين العمل الخاصة.
-- لا يوجد `hacs.json` مضلل؛ هذا المستودع Blueprint collection وليس HACS repository type.
+- Every Blueprint YAML file can be parsed with `!input` support.
+- The actual Blueprint file set matches the validation map.
+- `blueprint.name` exists.
+- `blueprint.domain` is correct.
+- `description` exists.
+- `author` exists.
+- `source_url` points to the matching file in this repository.
+- `homeassistant.min_version` uses `X.Y.Z` format.
+- Every referenced `!input` is defined inside `blueprint.input`.
+- No `wait_template` or `wait_for_trigger` is left without a timeout.
+- Water/irrigation and lighting Blueprints do not use `mode: restart`.
+- Template triggers do not accidentally reference action-time variables that should be provided through `trigger_variables`.
+- Every Blueprint has a unique dedicated image.
+- Every SVG parses as valid XML.
+- Every Blueprint has dedicated documentation.
+- Each guide identifies its Blueprint file.
+- Each guide embeds its dedicated image.
+- Each guide contains step-by-step documentation.
+- Each Blueprint appears in the root README.
+- Each Blueprint appears in the Blueprint Catalog.
+- Local Markdown links and local image paths resolve to real repository files.
+- Known private-home identifier patterns are not present in public text files.
+- Public documentation and Blueprint-facing text remain English-only.
+- No misleading `hacs.json` file exists.
 
-## 2. Home Assistant configuration validation
+## 2. Home Assistant Configuration Validation
 
-CI ينشئ Config اختبار في:
+CI builds a test configuration under:
 
 `tests/ha_config/`
 
-ثم ينسخ كل Blueprints تحت المسارات التي يتوقعها Home Assistant ويُنشئ Instances تجريبية لكل Blueprint.
+It copies all Blueprints into the structure expected by Home Assistant and creates test instances for every Blueprint.
 
-التغطية تشمل:
+Coverage includes:
 
 - Smart Irrigation — Sun mode.
 - Smart Irrigation — Custom time.
@@ -67,76 +70,77 @@ CI ينشئ Config اختبار في:
 - Quran Safe Toggle Script.
 - Manual Irrigation Script.
 
-بعدها يشغل Home Assistant Core **2026.9.4** نفسه:
+The workflow then runs Home Assistant Core **2026.9.4** itself:
 
 ```text
 python -m homeassistant --script check_config -c /config
 ```
 
-داخل:
+inside:
 
 ```text
 ghcr.io/home-assistant/home-assistant:2026.9.4
 ```
 
-هذا يفحص تحميل الـBlueprints وتوسيع Inputs وبناء الأوتوميشنات والسكريبتات في Config حقيقي لـHome Assistant.
+This verifies that Blueprint files load, inputs expand, and the generated automations/scripts are accepted by a real Home Assistant configuration check.
 
-## 3. Manual logic audit
+## 3. Manual Logic Audit
 
-الـCI لا يفهم نية الأوتوميشن وحده، لذلك تمت مراجعة المنطق يدويًا أيضًا من ناحية:
+CI cannot understand user intent by itself, so logic is also reviewed manually for:
 
 - Trigger semantics.
-- Trigger-time variables مقابل action-time variables.
+- Trigger-time versus action-time variables.
 - Conditions.
 - Actions.
-- Waits وTimeouts.
+- Waits and timeouts.
 - Failure paths.
 - Retry behavior.
-- Restart/Reload behavior.
+- Restart/reload behavior.
 - Automation mode.
-- منع Runs المتداخلة.
-- عدم اعتبار Service Call نجاحًا قبل State verification عندما تكون الحالة حساسة.
-- خطر ترك صمام ماء ON.
-- عدم إجبار اللمبة الخارجية على عكس قرار يدوي بعد Restart.
-- عدم اعتبار أي `playing` دليلًا أن نفس Quran URI هو الذي يعمل.
-- عدم الاعتماد على اسم Update لتحديد الأولوية.
+- Overlapping-run behavior.
+- State verification after hardware commands.
+- Water-valve safety.
+- Manual-lighting priority.
+- Exact Quran URI verification.
+- Explicit update-priority selection.
 
-## 4. Documentation gate
+## 4. Documentation Gate
 
-السياسة الآن:
+Repository policy:
 
-> **لا Blueprint بدون صورة مخصصة + شرح مخصص + خطوات تنفيذ + حدود + طريقة اختبار + Import URL.**
+> **No Blueprint without a dedicated image, dedicated guide, step-by-step execution explanation, limits, test procedure, and import URL.**
 
-إذا أضيف Blueprint جديد إلى `blueprints/**/*.yaml` بدون إدخاله في Validation map أو بدون صورة/شرح، يفشل الـCI.
+A new Blueprint that is not added to the validation map, or that lacks its required documentation/artwork, causes the validation job to fail.
 
-## ماذا يعني PASS؟
+## What PASS Means
 
-PASS يعني أن نسخة الـRepository المختبرة:
+A green validation run means the tested repository revision:
 
-- سليمة YAML/XML.
-- مطابقة لقواعد Blueprint الداخلية للمشروع.
-- قابلة للتحميل والتوسيع داخل Home Assistant 2026.9.4 Config test.
-- لا تحتوي الأخطاء البنيوية التي تغطيها الاختبارات.
-- جميع Blueprints المشمولة لها Docs وصور سليمة وروابط محلية غير مكسورة.
+- Contains valid YAML/XML.
+- Meets this project's Blueprint structure and documentation rules.
+- Can instantiate all test Blueprint instances in Home Assistant 2026.9.4.
+- Passes Home Assistant `check_config`.
+- Has valid local documentation links and images.
+- Has no known private-home identifiers covered by the repository scanner.
+- Meets the English-only public-content rule.
 
-## ماذا لا يعني PASS؟
+## What PASS Does Not Mean
 
-**لا يوجد اختبار GitHub يستطيع ضمان استجابة الأجهزة المادية بنسبة 100%.**
+No GitHub test can guarantee real-world physical-device behavior.
 
-أمثلة لا يستطيع CI إثباتها:
+CI cannot prove:
 
-- هل صمام المياه أغلق ميكانيكيًا فعلًا رغم أن State أصبحت OFF.
-- هل Zigbee mesh وصل الأمر للجهاز في كل مرة.
-- هل Wi-Fi انقطع لحظة التشغيل.
-- هل AirPlay/Chromecast/Music Assistant player خرج منه صوت فعلي.
-- هل GPS حدّث موقع Person في الوقت المتوقع.
-- هل Firmware لجهاز معين يتصرف بطريقة مختلفة.
+- A water valve mechanically closed even though the entity reports OFF.
+- A Zigbee or Wi-Fi command arrived every time.
+- A Music Assistant target produced audible sound.
+- A location tracker updated at exactly the expected time.
+- Every firmware version reports state identically.
 
-لهذا كل Blueprint حساس يحتوي **Live Test Checklist** قبل الاعتماد الفعلي.
+For that reason, every hardware-facing guide includes a **Live-Test Checklist**.
 
-## قاعدة الدمج
+## Merge Rule
 
-الترتيب الصحيح دائمًا:
+The required sequence is:
 
 ```text
 Edit
@@ -147,4 +151,4 @@ Edit
 → Merge
 ```
 
-لا يتم تجاوز هذه القاعدة لمجرد أن إصدارًا سابقًا من نفس PR كان ناجحًا.
+The rule is not bypassed because an earlier revision of the same pull request passed.
