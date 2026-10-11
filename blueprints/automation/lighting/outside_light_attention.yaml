@@ -56,6 +56,10 @@ blueprint:
           filter:
             integration: mobile_app
 
+trigger_variables:
+  trigger_light: !input outside_light
+  trigger_elevation_limit: !input sun_elevation
+
 variables:
   light_target: !input outside_light
   elevation_limit: !input sun_elevation
@@ -70,13 +74,13 @@ triggers:
       {% else %}
         {{
           (
-            elevation | float < elevation_limit | float
-            and is_state(light_target, 'off')
+            elevation | float < trigger_elevation_limit | float
+            and is_state(trigger_light, 'off')
           )
           or
           (
-            elevation | float > elevation_limit | float
-            and is_state(light_target, 'on')
+            elevation | float > trigger_elevation_limit | float
+            and is_state(trigger_light, 'on')
           )
         }}
       {% endif %}
