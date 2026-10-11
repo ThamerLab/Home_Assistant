@@ -4,109 +4,104 @@
   <img src="../../../assets/quran-toggle.svg" alt="Quran Safe Toggle Script" width="100%">
 </p>
 
-Script Blueprint لتحويل أي عنصر قرآن داخل Music Assistant إلى زر ذكي واحد: **تشغيل / استكمال / إيقاف** حسب العنصر الحالي الحقيقي.
+This Script Blueprint turns one exact Quran item in Music Assistant into a single smart control: **play / resume / stop**, depending on the actual player state and active URI.
 
-## المتطلبات
+## Requirements
 
-- Music Assistant.
-- MA `media_player` وليس Native Cast/Apple TV.
-- URI دقيق للعنصر.
-- Media Type الصحيح.
+- Music Assistant is installed.
+- The target is a Music Assistant `media_player`, not the native Cast or Apple TV entity.
+- The exact URI of the requested item is known.
+- The correct media type is selected.
 
-## المدخلات
+## Inputs
 
-| Input | الوظيفة |
+| Input | Purpose |
 |---|---|
-| Music Assistant Player | الـMA Player المستهدف |
-| Exact Music Assistant URI | URI السورة/العنصر |
+| Music Assistant Player | Target MA player |
+| Exact Music Assistant URI | URI for the requested Quran item |
 | Media Type | track / album / playlist / radio |
-| Notification Devices | أجهزة اختيارية لتنبيهات الفشل |
+| Notification Devices | Optional devices for playback failure notifications |
 
-## المنطق خطوة بخطوة
+## Step-by-Step Logic
 
-### الحالة A — الـPlayer غير متاح
+### Step 1 — Player Unavailable
 
-إذا الحالة `unavailable` أو `unknown`:
+If the player state is `unavailable` or `unknown`:
 
-- لا يرسل Play/Stop.
-- يرسل Failure Notification.
-- ينشئ Persistent Notification.
-- ينهي السكربت.
+- No Play or Stop command is sent.
+- Optional mobile failure notifications are sent.
+- A persistent notification is created.
+- The script stops.
 
-### الحالة B — نفس URI يعمل الآن
+### Step 2 — Same URI Is Currently Playing
 
-الشروط:
+Conditions:
 
 - `state == playing`
-- `media_content_id == URI`
+- `media_content_id == requested URI`
 
-التصرف:
+The script then:
 
-1. يرسل `media_player.media_stop`.
-2. ينتظر حتى 15 ثانية.
-3. النجاح يتطلب أن العنصر لم يعد في حالة Playing بنفس URI.
-4. إذا لم يتأكد، يرسل Failure Notification ولا يدعي أن الإيقاف نجح.
+1. Sends `media_player.media_stop`.
+2. Waits up to 15 seconds.
+3. Treats the stop as successful only if the player is no longer playing that exact URI.
+4. Sends a failure notification if the stop cannot be confirmed.
 
-### الحالة C — نفس URI متوقف مؤقتًا
+### Step 3 — Same URI Is Paused
 
-الشروط:
+Conditions:
 
 - `state == paused`
-- `media_content_id == URI`
+- `media_content_id == requested URI`
 
-التصرف:
+The script then:
 
-1. يرسل `media_player.media_play`.
-2. ينتظر حتى 15 ثانية.
-3. يتأكد أن الحالة `playing` ونفس URI ما زال العنصر الحالي.
-4. إذا لم يتأكد، يبلغ بالفشل.
+1. Sends `media_player.media_play`.
+2. Waits up to 15 seconds.
+3. Requires `playing` plus the same exact URI.
+4. Sends a failure notification if resume cannot be confirmed.
 
-### الحالة D — أي شيء آخر
+### Step 4 — Any Other State or Content
 
-يشمل:
+This includes idle, available-but-off, different music, or a different Quran URI.
 
-- Player idle.
-- Player off لكنه متاح.
-- Music آخر يعمل.
-- Quran URI آخر يعمل.
+The script then:
 
-التصرف:
+1. Calls `music_assistant.play_media`.
+2. Uses `enqueue: replace`.
+3. Waits up to 30 seconds.
+4. Requires `playing` plus the requested URI.
+5. Sends a failure notification and persistent diagnostic message if verification fails.
 
-1. `music_assistant.play_media`.
-2. `enqueue: replace`.
-3. ينتظر حتى 30 ثانية.
-4. النجاح يتطلب `playing` + نفس URI.
-5. خلاف ذلك يرسل Failure Notification + Persistent Notification.
+## Why Exact URI Matching Matters
 
-## لماذا المقارنة بالـURI مهمة؟
+Checking only for `playing` is not enough. The player could be playing a different source or different media item.
 
-لو اكتفينا بفحص `playing`، ممكن يكون Spotify أو راديو أو سورة أخرى هي التي تعمل.
+The URI check ties the action to the exact requested content.
 
-الـURI يجعل القرار مرتبطًا **بنفس العنصر المطلوب**.
+## Concurrency
 
-## mode
+The script uses `mode: single`.
 
-`single`
+Repeated rapid button presses do not create multiple competing script runs.
 
-إذا ضغطت الزر عدة مرات بسرعة، لا تبدأ عدة Runs متنافسة في نفس الوقت.
+## Limits
 
-## حدود التصميم
+- Verification depends on Music Assistant state updates reaching Home Assistant.
+- Final Stop/Resume behavior depends on the capabilities Music Assistant exposes for the target player.
+- The script does not search by title; an exact URI is required.
+- No home-specific entity ID is stored in the Blueprint.
 
-- يعتمد على تحديث حالة Music Assistant في Home Assistant.
-- Stop/Resume النهائي يعتمد على قدرات الـPlayer التي يوفرها Music Assistant.
-- لا يختار السورة بالاسم أو Search؛ يجب إدخال URI صريح.
-- لا يحتوي أي Entity ID خاص بمنزل معين.
+## Safe Live-Test Checklist
 
-## اختبار آمن
+Test all four state paths independently:
 
-اختبر الحالات الأربع بشكل منفصل:
+1. Player Idle → requested URI should start.
+2. Requested URI Playing → it should stop.
+3. Requested URI Paused → it should resume.
+4. Different content Playing → the queue should be replaced by the requested URI.
 
-1. Player Idle → يجب أن يبدأ URI المطلوب.
-2. نفس URI Playing → يجب أن يتوقف.
-3. نفس URI Paused → يجب أن يستكمل.
-4. شيء آخر Playing → يجب أن يستبدل الـQueue بالعنصر المطلوب.
-
-راجع Trace في كل حالة.
+Review the Home Assistant trace after each test.
 
 ## Import
 
