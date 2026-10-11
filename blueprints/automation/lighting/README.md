@@ -5,33 +5,31 @@
   <img src="../../../assets/outdoor-alert.svg" alt="Abnormal State Alert" width="49%">
 </p>
 
-هذا القسم يفصل **تنفيذ الجدول** عن **التنبيه على الاستثناء**.
+This section deliberately separates **scheduled control** from **exception monitoring**.
 
 ## 1. 🌙 Outdoor Lights — Dusk to Dawn
 
-الملف:
-`outside_lights_dusk_dawn.yaml`
+File: `outside_lights_dusk_dawn.yaml`
 
-- ON عند عبور الشمس تحت Threshold.
-- OFF عند عبورها فوق Threshold.
-- تحقق من الحالة.
-- Retry واحد.
-- تنبيه إذا فشلت المحاولة الثانية.
-- بدون Startup force-sync احترامًا للتحكم اليدوي.
+- Turns the light ON when sun elevation crosses below the selected threshold.
+- Turns the light OFF when sun elevation crosses above the threshold.
+- Verifies the requested state.
+- Retries once if verification fails.
+- Sends a failure notification if the second attempt still cannot be confirmed.
+- Does not force a state during Home Assistant startup, preserving manual control.
 
-[📖 الشرح التفصيلي](./DUSK_TO_DAWN.md)
+[📖 Detailed guide](./DUSK_TO_DAWN.md)
 
 ## 2. 💡 Outdoor Light — Abnormal State Alert
 
-الملف:
-`outside_light_attention.yaml`
+File: `outside_light_attention.yaml`
 
-- يراقب Night + OFF أو Day + ON.
-- ينتظر Mismatch Duration.
-- يرسل Fix / Keep.
-- يعيد فحص الظروف قبل تنفيذ Fix.
-- Action IDs فريدة لكل Run.
+- Detects night + OFF or day + ON mismatches.
+- Requires the mismatch to persist for a configured duration.
+- Sends Fix / Keep actions.
+- Uses unique action IDs for every run.
+- Re-checks the current state and sun elevation before applying Fix.
 
-[📖 الشرح التفصيلي](./ABNORMAL_STATE_ALERT.md)
+[📖 Detailed guide](./ABNORMAL_STATE_ALERT.md)
 
-الاثنان مصممان للعمل معًا بدون Loop يجبرك على وضع معين بعد تغييرك اليدوي.
+The two Blueprints are designed to work together without creating a loop that constantly reverses the user's manual lighting decisions.
