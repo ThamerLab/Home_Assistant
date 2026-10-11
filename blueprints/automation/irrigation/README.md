@@ -5,43 +5,41 @@
   <img src="../../../assets/water-safety.svg" alt="Water Safety Watchdog" width="49%">
 </p>
 
-يوجد في هذا القسم Blueprintان منفصلان لأن **تشغيل السقاية** و**مراقبة التشغيل الطويل** وظيفتان مختلفتان.
+This section contains two separate Blueprints because **normal irrigation control** and **long-running safety monitoring** are different responsibilities.
 
 ## 1. 🌱 Smart Irrigation
 
-الملف:
-`smart_irrigation.yaml`
+File: `smart_irrigation.yaml`
 
-المهام:
+Main responsibilities:
 
-- Sunrise / Sunset.
-- Custom time.
-- Fixed clock interval.
-- منع بدء دورة فوق تشغيل موجود.
-- تحقق من ON.
-- فحص كل Flow Sensor بعد دقيقة.
-- No-Flow protection.
-- اكتشاف إطفاء أي صمام مبكرًا.
-- إيقاف نهائي + تحقق OFF.
-- تقدير استهلاك اختياري.
+- Sunrise / Sunset scheduling.
+- Custom daily time.
+- Fixed clock intervals.
+- Blocks a scheduled start when a selected valve is already ON.
+- Verifies that all selected valves report ON.
+- Samples every selected flow sensor after one minute.
+- Stops on failed no-flow validation.
+- Detects early/manual valve shutdown.
+- Sends a final OFF command and verifies OFF state.
+- Optionally estimates water usage.
 
-[📖 الشرح التفصيلي خطوة بخطوة](./SMART_IRRIGATION.md)
+[📖 Detailed step-by-step guide](./SMART_IRRIGATION.md)
 
 ## 2. 🚨 Long-running Water Safety Watchdog
 
-الملف:
-`long_running_water_safety.yaml`
+File: `long_running_water_safety.yaml`
 
-المهام:
+Main responsibilities:
 
-- مراقبة مدة ON.
-- Critical Notification.
-- Stop all / Keep running.
-- تحقق OFF بعد Stop.
-- Watchdog كل 5 دقائق + Startup fallback.
-- Snooze بعد Keep.
+- Monitors how long selected water switches remain ON.
+- Sends a critical notification.
+- Offers Stop all / Keep running actions.
+- Verifies OFF state after a stop command.
+- Uses a five-minute watchdog plus a startup fallback.
+- Supports a snooze period after Keep running.
 
-[📖 الشرح التفصيلي خطوة بخطوة](./WATER_SAFETY.md)
+[📖 Detailed step-by-step guide](./WATER_SAFETY.md)
 
 > [!IMPORTANT]
-> للأجهزة المائية الحقيقية يفضّل استخدام الاثنين معًا: الأول للتشغيل الطبيعي، والثاني كطبقة أمان مستقلة.
+> For real irrigation hardware, use both when practical: Smart Irrigation for normal operation and Water Safety as an independent supervisory layer.
