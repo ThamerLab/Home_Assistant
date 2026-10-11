@@ -5,200 +5,322 @@
 <br>
 
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Blueprints-41BDF5?logo=homeassistant&logoColor=white)
+![Target](https://img.shields.io/badge/Validated%20against-HA%202026.9.4-18BCF2)
 ![Music Assistant](https://img.shields.io/badge/Music%20Assistant-Quran-13705A)
 ![Safety](https://img.shields.io/badge/Safety-Water%20%26%20Lighting-EF4444)
-![Language](https://img.shields.io/badge/Docs-Arabic%20%2B%20English-8B5CF6)
+![Docs](https://img.shields.io/badge/Docs-Step--by--step-8B5CF6)
 ![Country](https://img.shields.io/badge/Built%20in-Saudi%20Arabia-10B981)
-![Maintained](https://img.shields.io/badge/Maintained-Yes-22C55E)
 
-**مجموعة عملية وقابلة للمشاركة لملفات Home Assistant — Blueprints، Dashboards، Packages وأتمتة منزلية مجرّبة.**
+**Reusable Home Assistant Blueprints with detailed Arabic documentation, dedicated visuals, failure handling, and automated validation.**
 
-[Blueprints](#-blueprints) · [القرآن](#-القرآن--music-assistant) · [الإنارة الخارجية](#-الإنارة-الخارجية) · [أمان المياه](#-أمان-المياه) · [الاستيراد](#-الاستيراد-السريع)
+[Blueprints](#-blueprints) · [Automation Catalog](./docs/AUTOMATION_CATALOG.md) · [Installation](./docs/INSTALLATION.md) · [Validation](./docs/VALIDATION.md)
 
 </div>
 
 ---
 
-## ✨ وش موجود هنا؟
+## 🎯 فلسفة المستودع
 
-المستودع مخصص للحلول التي يمكن مشاركتها وإعادة استخدامها بدون ربطها بكيانات أو أسرار منزل محدد:
+هذا المستودع لا يحفظ نسخة خاصة من منزل واحد. بدل ذلك، يحوّل الأتمتة العملية إلى **Blueprints عامة**:
 
-- 🧩 **Blueprints** جاهزة للاستيراد.
-- 📖 تشغيل القرآن عبر **Music Assistant**.
-- 🌙 أتمتة ومراقبة **الإنارة الخارجية**.
-- 💧 سقاية ذكية + **Watchdog للمياه التي تبقى شغالة**.
-- 📍 Presence / Zone notifications.
-- 📊 مكان منظم لـDashboards وPackages المستقبلية.
+- بدون Entity IDs خاصة.
+- بدون IPs أو Tokens أو Device IDs خاصة.
+- كل Blueprint له شرح مستقل خطوة بخطوة.
+- كل Blueprint له صورة مستقلة.
+- كل Wait له Timeout واضح.
+- أتمتة الماء والأجهزة الفعلية تتضمن Failure paths بدل افتراض النجاح.
+- التغييرات تمر عبر Static Validation + Home Assistant Config Check قبل دمجها.
 
-> [!TIP]
-> كل Blueprint هنا مصمم ليكون **Generic**: تختار كياناتك وأجهزتك من Inputs بدون رفع Entity IDs أو أسرار منزلك إلى GitHub.
+> [!IMPORTANT]
+> نجاح CI يثبت صحة YAML/Blueprint schema وقابلية تحميل Config الاختبار. لا يوجد اختبار Repository يستطيع ضمان استجابة جهاز مادي أو شبكة Zigbee/Wi-Fi بنسبة 100%؛ لذلك يوجد **Live Test Checklist** في شرح كل Blueprint حساس.
 
 ## 🧩 Blueprints
 
-| النظام | Blueprint | ماذا يسوي؟ | التوثيق |
-|---|---|---|---|
-| 🌱 السقاية | **Smart Irrigation** | شروق/غروب، وقت مخصص، Repeat، Flow، No-Flow، استهلاك تقديري | [شرح](./blueprints/automation/irrigation/README.md) |
-| 🚨 المياه | **Long-running Water Safety** | Critical alert إذا بقي صمام/ماء شغال، Stop/Keep، تحقق من الإطفاء | [شرح](./blueprints/automation/irrigation/WATER_SAFETY.md) |
-| 📖 القرآن | **Quran Sunrise & Sunset** | تشغيل URI دقيق من Music Assistant عند الشروق والغروب والتحقق من البداية | [شرح](./blueprints/automation/quran/README.md) |
-| 📖 القرآن | **Quran Safe Toggle Script** | Stop/Resume/Replace Queue حسب العنصر الحالي | [شرح](./blueprints/automation/quran/README.md) |
-| 🌙 الإنارة | **Outdoor Lights — Dusk to Dawn** | تشغيل/إطفاء حسب ارتفاع الشمس مع Retry واحترام التحكم اليدوي | [شرح](./blueprints/automation/lighting/README.md) |
-| 💡 الإنارة | **Outdoor Light — Abnormal State Alert** | تنبيه إذا بقيت مطفأة ليلًا أو شغالة نهارًا مع Fix/Keep | [شرح](./blueprints/automation/lighting/README.md) |
-| 📍 Presence | **Zone Exit Notification** | إشعار عند خروج Person من Zone، ومناسب لسيناريو تنبيه خروج العاملة بموافقتها | [شرح](./blueprints/automation/presence/README.md) |
+### 💧 Water & Irrigation
 
-## 📖 القرآن — Music Assistant
+<table>
+<tr>
+<td width="50%" valign="top">
+
+<img src="./assets/irrigation.svg" alt="Smart Irrigation" width="100%">
+
+#### 🌱 Smart Irrigation
+
+`smart_irrigation.yaml`
+
+- Sunrise / Sunset / Custom / Fixed interval.
+- يمنع بدء دورة فوق صمام شغال مسبقًا.
+- Verify ON.
+- يفحص **كل** Flow Sensor مختار.
+- No-flow shutdown.
+- Manual/early-stop detection.
+- Verify OFF.
+- Estimated water usage.
+
+[📖 شرح تفصيلي](./blueprints/automation/irrigation/SMART_IRRIGATION.md)
+
+</td>
+<td width="50%" valign="top">
+
+<img src="./assets/water-safety.svg" alt="Long Running Water Safety" width="100%">
+
+#### 🚨 Long-running Water Safety
+
+`long_running_water_safety.yaml`
+
+- Alert بعد مدة ON طويلة.
+- Critical notification.
+- Stop all / Keep running.
+- Verify OFF.
+- 5-minute watchdog.
+- Startup fallback.
+- Unique notification action IDs.
+
+[📖 شرح تفصيلي](./blueprints/automation/irrigation/WATER_SAFETY.md)
+
+</td>
+</tr>
+</table>
+
+### 📖 Quran / Music Assistant
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+<img src="./assets/quran-schedule.svg" alt="Quran Sunrise and Sunset" width="100%">
+
+#### 📖 Quran Sunrise & Sunset
+
+`music_assistant_sunrise_sunset.yaml`
+
+- Music Assistant player only.
+- Exact library URI.
+- `enqueue: replace`.
+- Verify `playing` + exact URI.
+- No 1–2 hour wait.
+
+[📖 شرح تفصيلي](./blueprints/automation/quran/SUNRISE_SUNSET.md)
+
+</td>
+<td width="50%" valign="top">
+
+<img src="./assets/quran-toggle.svg" alt="Quran Safe Toggle" width="100%">
+
+#### ▶️ Quran Safe Toggle Script
+
+`music_assistant_quran_toggle.yaml`
+
+- Same URI Playing → Stop + Verify.
+- Same URI Paused → Resume + Verify.
+- Other content → Replace Queue + Play + Verify.
+
+[📖 شرح تفصيلي](./blueprints/script/quran/README.md)
+
+</td>
+</tr>
+</table>
+
+### 🌙 Outdoor Lighting
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+<img src="./assets/outdoor-dusk-dawn.svg" alt="Outdoor Dusk to Dawn" width="100%">
+
+#### 🌙 Dusk to Dawn
+
+`outside_lights_dusk_dawn.yaml`
+
+- Sun elevation crossing.
+- ON at dusk / OFF at dawn.
+- Verify first attempt.
+- Retry once.
+- Failure notification.
+- No startup force-sync.
+
+[📖 شرح تفصيلي](./blueprints/automation/lighting/DUSK_TO_DAWN.md)
+
+</td>
+<td width="50%" valign="top">
+
+<img src="./assets/outdoor-alert.svg" alt="Outdoor Light Alert" width="100%">
+
+#### 💡 Abnormal State Alert
+
+`outside_light_attention.yaml`
+
+- Night + OFF / Day + ON.
+- Configurable mismatch duration.
+- Fix / Keep.
+- Unique Action IDs.
+- Re-check before applying Fix.
+
+[📖 شرح تفصيلي](./blueprints/automation/lighting/ABNORMAL_STATE_ALERT.md)
+
+</td>
+</tr>
+</table>
+
+### 🔔 System & Presence
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+<img src="./assets/updates.svg" alt="Available Updates Notification" width="100%">
+
+#### 🔔 Available Updates
+
+`available_updates_notification.yaml`
+
+- Daily check.
+- Sends only when updates exist.
+- User-selected Priority updates.
+- Other updates grouped automatically.
+- Opens Home Assistant Updates page.
+
+[📖 شرح تفصيلي](./blueprints/automation/system/README.md)
+
+</td>
+<td width="50%" valign="top">
+
+<img src="./assets/zone-notification.svg" alt="Zone Exit Notification" width="100%">
+
+#### 📍 Zone Exit Notification
+
+`notify_leaving_zone.yaml`
+
+- Official Home Assistant logic mirrored with attribution.
+- Person leaves selected Zone.
+- Companion App notification.
+- Suitable for consent-based household presence alerts.
+
+[📖 شرح تفصيلي](./blueprints/automation/presence/README.md)
+
+</td>
+</tr>
+</table>
+
+### 💧 Manual Irrigation Script
 
 <p align="center">
-  <img src="./assets/quran.svg" alt="Quran via Music Assistant" width="82%">
+  <img src="./assets/manual-irrigation.svg" alt="Manual Irrigation Safe Run" width="72%">
 </p>
 
-بدل التشغيل المباشر على Apple TV / Google Cast، الـBlueprints هنا تستخدم **Music Assistant** وURI دقيق من المكتبة.
+#### 💧 Manual Irrigation — Safe Timed Run
 
-الموجود:
+`manual_irrigation_safe_run.yaml`
 
-- **Sunrise & Sunset Automation:** يشغّل السورة عند الشروق والغروب، ويتأكد أن نفس URI بدأ خلال 30 ثانية، ثم ينهي الأوتوميشن بدون انتظار ساعة أو ساعتين.
-- **Safe Toggle Script:** إذا نفس السورة تعمل يوقفها، إذا Paused يكملها، وإذا شيء ثاني يعمل يستبدل الـQueue بالسورة المطلوبة.
+مدة التشغيل تُطلب عند كل تشغيل للسكريبت، مع Verify ON، Flow protection، Early-stop detection، Final OFF verification، وNotifications اختيارية.
 
-[📖 شرح القرآن كامل](./blueprints/automation/quran/README.md)
+[📖 شرح تفصيلي](./blueprints/script/irrigation/README.md)
 
-## 🌙 الإنارة الخارجية
+## 📚 Automation Catalog
 
-<p align="center">
-  <img src="./assets/outdoor-lighting.svg" alt="Outdoor Lighting Blueprints" width="82%">
-</p>
+لشرح جميع الأنظمة نقطة بنقطة في مكان واحد:
 
-يوجد Blueprintان منفصلان حتى يبقى المنطق واضحًا:
+**[docs/AUTOMATION_CATALOG.md](./docs/AUTOMATION_CATALOG.md)**
 
-1. **Dusk to Dawn** — يتحكم بالإنارة عند عبور الشمس للحد المختار، مع Retry واحد.
-2. **Abnormal State Alert** — إذا بقيت اللمبة مطفأة ليلًا أو شغالة نهارًا لمدة طويلة، يرسل تنبيه فيه **Fix / Keep**.
+يشمل:
 
-[💡 شرح الإنارة الخارجية](./blueprints/automation/lighting/README.md)
+1. Quran sunrise/sunset.
+2. Scheduled irrigation.
+3. Available updates.
+4. Outdoor dusk/dawn.
+5. Outdoor abnormal-state alert.
+6. Long-running water safety.
+7. Manual irrigation.
+8. Quran safe toggle.
+9. Zone exit notification.
 
-## 🚨 أمان المياه
+## 🚀 Import
 
-<p align="center">
-  <img src="./assets/water-safety.svg" alt="Long Running Water Safety" width="82%">
-</p>
+كل صفحة شرح تحتوي زر Import مباشر.
 
-**Long-running Water Safety Watchdog** مستقل عن جدول السقاية:
-
-- تنبيه افتراضي بعد 10 دقائق.
-- Critical Notification.
-- زر **Stop all** وزر **Keep running**.
-- يتحقق أن كل الكيانات أصبحت `off` بعد أمر الإيقاف.
-- Watchdog كل 5 دقائق لاستدراك Restart/Reload.
-- Snooze بعد اختيار Keep ثم يرجع للمراقبة.
-
-[🚨 شرح Water Safety](./blueprints/automation/irrigation/WATER_SAFETY.md)
-
-## 📍 تنبيه الخروج من المنزل
-
-Blueprint **Zone Exit Notification** هو نسخة موثقة من Blueprint Home Assistant الرسمي.
-
-مثال الاستخدام: إرسال إشعار عند خروج Person من `zone.home` — مثل تنبيه خروج العاملة المنزلية عندما يكون تتبع الشخص مُعدًا **بموافقته**.
-
-[📍 شرح Zone Notification](./blueprints/automation/presence/README.md)
-
-## 🚀 الاستيراد السريع
-
-### Smart Irrigation
-[![Import Smart Irrigation](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FThamerLab%2FHome_Assistant%2Fmain%2Fblueprints%2Fautomation%2Firrigation%2Fsmart_irrigation.yaml)
-
-### Water Safety Watchdog
-[![Import Water Safety](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FThamerLab%2FHome_Assistant%2Fmain%2Fblueprints%2Fautomation%2Firrigation%2Flong_running_water_safety.yaml)
-
-### Quran — Sunrise & Sunset
-[![Import Quran Schedule](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FThamerLab%2FHome_Assistant%2Fmain%2Fblueprints%2Fautomation%2Fquran%2Fmusic_assistant_sunrise_sunset.yaml)
-
-### Quran — Safe Toggle Script
-[![Import Quran Toggle](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FThamerLab%2FHome_Assistant%2Fmain%2Fblueprints%2Fscript%2Fquran%2Fmusic_assistant_quran_toggle.yaml)
-
-### Outdoor Lights — Dusk to Dawn
-[![Import Outdoor Lights](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FThamerLab%2FHome_Assistant%2Fmain%2Fblueprints%2Fautomation%2Flighting%2Foutside_lights_dusk_dawn.yaml)
-
-### Outdoor Light — Abnormal State Alert
-[![Import Outdoor Light Alert](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FThamerLab%2FHome_Assistant%2Fmain%2Fblueprints%2Fautomation%2Flighting%2Foutside_light_attention.yaml)
-
-### Zone Exit Notification
-[![Import Zone Exit Notification](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FThamerLab%2FHome_Assistant%2Fmain%2Fblueprints%2Fautomation%2Fpresence%2Fnotify_leaving_zone.yaml)
-
-أو يدويًا:
+الطريقة اليدوية:
 
 ```text
-Settings
+Home Assistant
+→ Settings
 → Automations & Scenes
 → Blueprints
 → Import Blueprint
 ```
 
-## 🗂️ هيكلة المستودع
+راجع [Installation Guide](./docs/INSTALLATION.md).
+
+## ✅ Validation
+
+التغييرات تخضع إلى Workflow:
+
+`.github/workflows/validate-blueprints.yml`
+
+ويشمل:
+
+- YAML parse.
+- Blueprint metadata.
+- `!input` integrity.
+- Wait timeouts.
+- Dedicated docs/images coverage.
+- SVG/XML validation.
+- Private-home-data scan داخل Blueprints.
+- Home Assistant `check_config` مع Instantiation تجريبية لكل Blueprint.
+
+التفاصيل والحالة الحالية:
+[docs/VALIDATION.md](./docs/VALIDATION.md)
+
+## 🗂️ Structure
 
 ```text
 Home_Assistant/
 ├── assets/
-│   ├── hero.svg
-│   ├── irrigation.svg
-│   ├── outdoor-lighting.svg
-│   ├── quran.svg
-│   ├── water-safety.svg
-│   └── zone-notification.svg
 ├── blueprints/
-│   ├── README.md
 │   ├── automation/
 │   │   ├── irrigation/
 │   │   │   ├── smart_irrigation.yaml
-│   │   │   ├── long_running_water_safety.yaml
-│   │   │   ├── README.md
-│   │   │   └── WATER_SAFETY.md
+│   │   │   └── long_running_water_safety.yaml
 │   │   ├── lighting/
 │   │   │   ├── outside_lights_dusk_dawn.yaml
-│   │   │   ├── outside_light_attention.yaml
-│   │   │   └── README.md
+│   │   │   └── outside_light_attention.yaml
 │   │   ├── presence/
-│   │   │   ├── notify_leaving_zone.yaml
-│   │   │   └── README.md
-│   │   └── quran/
-│   │       ├── music_assistant_sunrise_sunset.yaml
-│   │       └── README.md
+│   │   │   └── notify_leaving_zone.yaml
+│   │   ├── quran/
+│   │   │   └── music_assistant_sunrise_sunset.yaml
+│   │   └── system/
+│   │       └── available_updates_notification.yaml
 │   └── script/
+│       ├── irrigation/
+│       │   └── manual_irrigation_safe_run.yaml
 │       └── quran/
 │           └── music_assistant_quran_toggle.yaml
-├── dashboards/
-├── packages/
-└── README.md
+├── docs/
+│   ├── AUTOMATION_CATALOG.md
+│   ├── INSTALLATION.md
+│   └── VALIDATION.md
+├── tests/
+└── .github/workflows/
 ```
 
-## 🎨 الهوية
+## 🔐 Security & Privacy
 
-| اللون | الاستخدام | Hex |
-|---|---|---|
-| 🔵 Home Assistant Blue | العناصر الأساسية | `#41BDF5` |
-| 🟢 Emerald | النجاح / Music Assistant / الأتمتة | `#10B981` |
-| 🟡 Gold | القرآن | `#C9A84F` |
-| 🟣 Violet | Presence / Notifications | `#8B5CF6` |
-| 🔴 Red | Safety / Critical Alerts | `#EF4444` |
-| ⚫ Deep Navy | الخلفيات | `#0B1220` |
+- لا ترفع `secrets.yaml`.
+- لا تضع Tokens أو Passwords أو Webhook secrets.
+- لا تضع Entity IDs أو Device IDs أو IPs الخاصة بمنزلك داخل Blueprint عام.
+- Location/presence automations تستخدم فقط بيانات تم إعدادها مسبقًا داخل Home Assistant وبموافقة الشخص المعني.
+- اختبر الماء والأجهزة الفعلية تحت المراقبة قبل الاعتماد.
 
-## 🔐 الأمان والخصوصية
+## 🧱 Other folders
 
-- لا ترفع `secrets.yaml` أو Tokens أو API Keys.
-- لا تضع عناوين IP عامة أو Webhook IDs أو بيانات تسجيل الدخول.
-- لا تضع أسماء أشخاص أو Device IDs الخاصة بمنزلك داخل Blueprint عام.
-- تتبع المواقع يعتمد على بيانات موجودة أصلًا داخل Home Assistant؛ استخدم مشاركة الموقع فقط بموافقة الشخص المعني.
-- اختبر أي Automation يتحكم بالمياه أو الأجهزة الفعلية قبل الاعتماد عليه.
+`dashboards/` و`packages/` ما زالا مساحات تجهيز؛ لا يتم ادعاء وجود Dashboard/Package جاهز قبل إضافته واختباره.
 
-## 🗺️ Roadmap
-
-- [ ] Irrigation dashboard جاهز للاستيراد.
-- [ ] Notification Center package.
-- [ ] Energy monitoring package.
-- [ ] Climate control package.
-- [ ] Mobile-first Mushroom dashboard examples.
-- [ ] المزيد من Blueprints المجرّبة والموثقة.
+`forms/` يحتوي أداة مستقلة وليست جزءًا من Blueprint validation.
 
 ---
 
 <div align="center">
 
-Made for Home Assistant by **ThamerLab**
+Built and maintained by **ThamerLab**
 
 </div>
