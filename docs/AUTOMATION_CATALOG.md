@@ -1,178 +1,190 @@
 # Automation Catalog
 
-هذا الملف يشرح **كل نمط Automation/Script منزلي ممثل حاليًا في هذا المستودع**، ويجمعه مع الـBlueprint العام المقابل.
+This document explains every reusable automation and script pattern currently represented in this repository and links each one to its corresponding public Blueprint.
 
-> آخر Snapshot منزلي تم استخدامه كمصدر للمراجعة كان بتاريخ 2026-10-06. المستودع العام لا يحتوي Entity IDs أو أسماء أجهزة خاصة بالمنزل.
+> The public repository intentionally excludes private entity IDs, device names, IP addresses, and other home-specific configuration.
 
-## خريطة الأنظمة
+## System Map
 
-| # | النظام | النوع | Blueprint |
+| # | System | Type | Blueprint |
 |---:|---|---|---|
-| 1 | تشغيل القرآن عند الشروق والغروب | Automation | [Quran Sunrise & Sunset](../blueprints/automation/quran/SUNRISE_SUNSET.md) |
-| 2 | السقاية المجدولة | Automation | [Smart Irrigation](../blueprints/automation/irrigation/SMART_IRRIGATION.md) |
-| 3 | إشعار التحديثات | Automation | [Available Updates](../blueprints/automation/system/README.md) |
-| 4 | الإنارة الخارجية من الغروب للفجر | Automation | [Dusk to Dawn](../blueprints/automation/lighting/DUSK_TO_DAWN.md) |
-| 5 | تنبيه حالة الإنارة الخارجية غير المعتادة | Automation | [Abnormal State Alert](../blueprints/automation/lighting/ABNORMAL_STATE_ALERT.md) |
-| 6 | تنبيه الماء/السقاية التي بقيت شغالة | Automation | [Water Safety Watchdog](../blueprints/automation/irrigation/WATER_SAFETY.md) |
-| 7 | السقاية اليدوية المؤقتة | Script | [Manual Irrigation](../blueprints/script/irrigation/README.md) |
-| 8 | زر القرآن الذكي | Script | [Quran Safe Toggle](../blueprints/script/quran/README.md) |
-| 9 | تنبيه خروج شخص من Zone | Automation | [Zone Exit Notification](../blueprints/automation/presence/README.md) |
+| 1 | Quran playback at sunrise and sunset | Automation | [Quran Sunrise & Sunset](../blueprints/automation/quran/SUNRISE_SUNSET.md) |
+| 2 | Scheduled irrigation | Automation | [Smart Irrigation](../blueprints/automation/irrigation/SMART_IRRIGATION.md) |
+| 3 | Available update notifications | Automation | [Available Updates](../blueprints/automation/system/README.md) |
+| 4 | Outdoor lighting from dusk to dawn | Automation | [Dusk to Dawn](../blueprints/automation/lighting/DUSK_TO_DAWN.md) |
+| 5 | Outdoor-light abnormal-state alert | Automation | [Abnormal State Alert](../blueprints/automation/lighting/ABNORMAL_STATE_ALERT.md) |
+| 6 | Long-running water safety | Automation | [Water Safety Watchdog](../blueprints/automation/irrigation/WATER_SAFETY.md) |
+| 7 | Timed manual irrigation | Script | [Manual Irrigation](../blueprints/script/irrigation/README.md) |
+| 8 | Quran smart toggle | Script | [Quran Safe Toggle](../blueprints/script/quran/README.md) |
+| 9 | Zone exit notification | Automation | [Zone Exit Notification](../blueprints/automation/presence/README.md) |
 
 ---
 
-## 1. 📖 تشغيل القرآن عند الشروق والغروب
+## 1. 📖 Quran Playback at Sunrise and Sunset
 
-**Trigger:** شروق + غروب.
+**Triggers:** Sunrise and sunset.
 
-**التسلسل:**
+### Step-by-Step Flow
 
-1. Home Assistant يستقبل حدث الشمس.
-2. يفحص MA Player.
-3. إذا غير متاح يوقف ويبلغ.
-4. إذا متاح يطلب من Music Assistant تشغيل URI صريح.
-5. يستخدم Replace Queue لمنع استمرار محتوى قديم.
-6. ينتظر بحد أقصى 30 ثانية.
-7. النجاح يحتاج Player=Playing ونفس URI.
-8. عند النجاح ينتهي فورًا.
-9. عند الفشل يبلغ ولا ينتظر ساعات.
+1. Home Assistant receives the sun event.
+2. The automation checks the selected Music Assistant player.
+3. If the player is unavailable or unknown, the run stops and reports the failure.
+4. If the player is available, Music Assistant is asked to play one exact URI.
+5. The queue is replaced so older content does not remain ahead of the requested item.
+6. The automation waits up to 30 seconds.
+7. Success requires both `playing` state and the exact requested `media_content_id`.
+8. On success, the automation ends immediately.
+9. On failure, a diagnostic notification is created.
 
-**سبب التصميم:** الأوتوميشن مسؤول عن بدء التلاوة فقط، وليس تفسير كل Pause/End لاحق.
-
----
-
-## 2. 🌱 السقاية المجدولة
-
-**Trigger:** شروق/غروب أو وقت مخصص أو Interval.
-
-**التسلسل:**
-
-1. يحدد هل الـTrigger مطابق للSchedule Mode.
-2. يفحص هل أي صمام شغال مسبقًا.
-3. يشغل جميع الصمامات.
-4. يتحقق أن الجميع ON.
-5. ينتظر دقيقة.
-6. يتأكد أن الصمامات لم تنطفئ.
-7. يفحص كل Flow Sensor مختار.
-8. عند No-Flow يوقف الجميع فورًا.
-9. يراقب أي إطفاء مبكر لبقية المدة.
-10. عند نهاية المدة يرسل OFF للجميع.
-11. يتحقق أن الجميع OFF.
-12. يحسب Estimate إذا توجد حساسات.
-13. يرسل Completion فقط بعد نجاح الإيقاف.
+**Design reason:** the automation owns the start event only. It does not attempt to interpret every pause, stop, or natural completion during a long recitation.
 
 ---
 
-## 3. 🔔 إشعار التحديثات
+## 2. 🌱 Scheduled Irrigation
 
-**Trigger:** وقت يومي.
+**Triggers:** Sunrise/sunset, one custom time, or a fixed clock interval.
 
-**التسلسل:**
+### Step-by-Step Flow
 
-1. يجمع كل `update.*` التي حالتها ON.
-2. إذا القائمة فارغة لا يرسل شيئًا.
-3. يقسم المتاح إلى Priority وOther حسب اختيار المستخدم.
-4. يبني ملخصًا.
-5. يرسله للأجهزة المختارة.
-6. Notification يفتح صفحة Updates.
-7. لا يثبت أي تحديث تلقائيًا.
-
----
-
-## 4. 🌙 الإنارة الخارجية Dusk to Dawn
-
-**Trigger:** Sun elevation يعبر Threshold.
-
-**المساء:**
-
-1. Turn ON.
-2. انتظر State=ON.
-3. إذا فشل، انتظر 5 ثوان.
-4. أعد المحاولة مرة.
-5. تحقق مرة ثانية.
-6. إذا فشل، أرسل خطأ.
-
-**الصباح:** نفس التسلسل مع OFF.
-
-**قرار مهم:** لا يوجد Startup sync حتى لا يمسح قرارًا يدويًا بمجرد Restart.
+1. Confirm that the current trigger belongs to the selected schedule mode.
+2. Check whether any selected valve is already ON.
+3. If a valve is already ON and blocking is enabled, skip the scheduled run.
+4. Send ON to all selected valves.
+5. Verify that every selected valve reports ON.
+6. Wait one minute.
+7. Confirm that all selected valves are still ON.
+8. Read every selected flow sensor.
+9. If no-flow protection is enabled, require every selected sensor to report a positive numeric value.
+10. If any sensor fails, send OFF to all valves and stop.
+11. Monitor the remaining runtime for any selected valve turning OFF early.
+12. At the end of the runtime, send OFF to all selected valves.
+13. Verify that every selected valve reports OFF.
+14. Calculate an estimated water-usage value when flow sensors are configured.
+15. Send the completion notification only after shutdown is confirmed.
 
 ---
 
-## 5. 💡 تنبيه حالة الإنارة غير المعتادة
+## 3. 🔔 Available Updates
 
-**Trigger:** استمرار Night+OFF أو Day+ON مدة محددة.
+**Trigger:** One configured time every day.
 
-**التسلسل:**
+### Step-by-Step Flow
 
-1. Template يكتشف التناقض.
-2. ينتظر مدة Mismatch.
-3. يحدد Night Off أو Day On.
-4. ينشئ Fix/Keep IDs فريدة.
-5. يرسل Actionable Notification.
-6. ينتظر Fix أو Keep أو أن تنحل المشكلة.
-7. Fix يعيد التحقق من الحالة الحالية قبل التغيير.
-8. Keep لا يغير شيئًا.
-9. Notification يُمسح عند نهاية السيناريو.
+1. Read all `update.*` entities.
+2. If none are `on`, send nothing.
+3. Split available updates into Priority and Other groups.
+4. Priority membership is chosen explicitly by the user, not guessed from names.
+5. Build a single summary.
+6. Send it to the selected Companion App devices.
+7. Include a link to the Home Assistant Updates page.
+8. Do not install or apply any update automatically.
 
 ---
 
-## 6. 🚨 Water Safety Watchdog
+## 4. 🌙 Outdoor Lighting — Dusk to Dawn
 
-**Trigger:** صمام ON لمدة طويلة + Watchdog 5 دقائق + Startup fallback.
+**Trigger:** Sun elevation crossing the configured threshold.
 
-**التسلسل:**
+### Evening Flow
 
-1. يتحقق أن التشغيل الطويل ما زال حقيقيًا.
-2. ينشئ Stop/Keep IDs فريدة.
-3. يرسل Critical Notification.
-4. Stop → OFF للجميع → Verify OFF.
-5. إذا Verify فشل → Critical failure.
-6. Keep → Snooze.
-7. All Off يدويًا → Clear notification.
-8. No response → التنبيه يبقى ظاهرًا؛ الـWatchdog يستطيع التجديد لاحقًا.
+1. Send `light.turn_on`.
+2. Wait for the selected light to report ON.
+3. If verification fails, wait five seconds.
+4. Retry ON once.
+5. Verify again.
+6. If the second attempt fails, create failure notifications.
+
+### Morning Flow
+
+The same sequence runs with `light.turn_off` and OFF-state verification.
+
+**Important design choice:** there is no startup force-sync. A Home Assistant restart does not automatically reverse a manual lighting decision made after the scheduled event.
+
+---
+
+## 5. 💡 Outdoor Light — Abnormal State Alert
+
+**Trigger:** Night + OFF or Day + ON remains true for the configured mismatch duration.
+
+### Step-by-Step Flow
+
+1. A template trigger detects the mismatch.
+2. The mismatch must remain true for the configured duration.
+3. The automation identifies whether the situation is Night + OFF or Day + ON.
+4. Unique Fix and Keep action IDs are generated from the current automation context.
+5. An actionable notification is sent.
+6. The automation waits for Fix, Keep, or automatic resolution.
+7. If Fix is selected, current sun elevation and current light state are checked again before changing the light.
+8. If Keep is selected, the light is not changed.
+9. If the mismatch resolves by itself, the notification is cleared.
+
+---
+
+## 6. 🚨 Long-running Water Safety Watchdog
+
+**Triggers:** A selected switch remaining ON too long, a five-minute periodic watchdog, and Home Assistant startup.
+
+### Step-by-Step Flow
+
+1. Confirm that a selected switch has exceeded the configured ON duration.
+2. Generate unique Stop and Keep action IDs.
+3. Send a critical actionable notification.
+4. If Stop is selected, send OFF to all selected switches.
+5. Wait up to 15 seconds for every selected switch to report OFF.
+6. If shutdown verification fails, send a new critical failure notification.
+7. If Keep is selected, clear the original warning and enter the configured snooze period.
+8. If all selected switches are turned OFF manually, clear the warning.
+9. If no response is received, the warning remains visible and a later watchdog run can replace it.
 
 ---
 
 ## 7. 💧 Manual Irrigation Script
 
-**التسلسل:**
+### Step-by-Step Flow
 
-1. يطلب مدة تشغيل عند استدعاء السكربت.
-2. يمنع التشغيل إذا وجد صمامًا ON مسبقًا.
-3. يشغل الجميع.
-4. يتحقق من ON.
-5. ينتظر دقيقة.
-6. يتحقق من الصمامات وFlow.
-7. يراقب الإطفاء المبكر.
-8. عند انتهاء المدة يطفئ الجميع.
-9. يتحقق من OFF.
-10. يعرض تقدير الاستهلاك إذا توجد حساسات.
+1. Ask for a runtime when the script is called.
+2. Check whether a selected valve is already ON.
+3. If blocking is enabled and a valve is already ON, do not take control.
+4. Send ON to all selected valves.
+5. Verify that every selected valve reports ON.
+6. Wait one minute.
+7. Confirm that all selected valves are still ON.
+8. Validate every selected flow sensor when no-flow protection is enabled.
+9. Monitor for early valve shutdown during the remaining runtime.
+10. At the end, send OFF to every selected valve.
+11. Verify that all selected valves report OFF.
+12. Send a completion notification only after successful shutdown verification.
+13. Report an estimated water-usage value when flow sensors are configured.
 
-**مهم:** Restart أثناء تشغيل Script يوقف Sequence؛ لذلك Water Safety Blueprint موصى به كطبقة مستقلة.
+**Important:** a Home Assistant restart interrupts an active script sequence, so this script should be paired with the independent Water Safety Watchdog for real irrigation hardware.
 
 ---
 
 ## 8. 📖 Quran Safe Toggle Script
 
-**التسلسل:**
+### Step-by-Step Flow
 
-1. Player unavailable → Failure.
-2. نفس URI Playing → Stop + Verify.
-3. نفس URI Paused → Resume + Verify.
-4. أي حالة أخرى → Replace Queue + Play.
-5. نجاح Play يحتاج Playing + نفس URI.
-6. فشل التحقق ينتج Notification واضح.
+1. If the Music Assistant player is unavailable, stop and report the failure.
+2. If the requested URI is currently playing, send Stop and verify the result.
+3. If the requested URI is currently paused, send Resume and verify the result.
+4. For any other content or player state, replace the Music Assistant queue with the requested URI.
+5. Wait for `playing` plus the exact URI.
+6. If verification fails, send a diagnostic notification.
+
+The exact URI check prevents unrelated content from being mistaken for the requested Quran item.
 
 ---
 
 ## 9. 📍 Zone Exit Notification
 
-**Trigger:** تغير Person state.
+**Trigger:** Any state change of the selected Person entity.
 
-**التسلسل:**
+### Step-by-Step Flow
 
-1. يقرأ Person وZone.
-2. يتحقق أن الحالة السابقة كانت داخل Zone.
-3. يتحقق أن الحالة الجديدة خرجت منها.
-4. يرسل اسم الشخص والمنطقة إلى Companion App.
+1. Read the selected Person and Zone.
+2. Determine the state that represents being inside the selected zone.
+3. Confirm that the previous state represented the selected zone.
+4. Confirm that the new state is outside that zone.
+5. Send a Companion App notification.
 
-**مهم:** دقة وتوقيت الخروج يعتمدان على Device Tracker وليس الـBlueprint نفسه.
+**Important:** location accuracy and notification timing depend on the underlying Device Tracker, not on this Blueprint itself.
