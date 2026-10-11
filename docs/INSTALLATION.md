@@ -2,6 +2,10 @@
 
 هذا المستودع عبارة عن **Home Assistant Blueprint collection** وليس HACS Integration.
 
+## الإصدار المدعوم والمختبر
+
+جميع Blueprints الحالية تضبط `homeassistant.min_version` على **2026.9.4**، وهو نفس إصدار Home Assistant Core المستخدم في `check_config` داخل CI. لم نضع Minimum أقدم من البيئة التي تم اختبارها فعليًا.
+
 ## الطريقة الصحيحة
 
 لكل Blueprint يوجد زر Import في صفحة الشرح الخاصة به، أو:
