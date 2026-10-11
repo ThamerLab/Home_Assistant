@@ -1,0 +1,65 @@
+name: Validate Home Assistant Blueprints
+
+on:
+  pull_request:
+    paths:
+      - "blueprints/**"
+      - "assets/**"
+      - "docs/**"
+      - "README.md"
+      - "tests/**"
+      - ".github/workflows/validate-blueprints.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "blueprints/**"
+      - "assets/**"
+      - "docs/**"
+      - "README.md"
+      - "tests/**"
+      - ".github/workflows/validate-blueprints.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  repository-validation:
+    name: Repository policy & static validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install validator dependency
+        run: python -m pip install --disable-pip-version-check PyYAML==6.0.2
+
+      - name: Validate repository
+        run: python tests/validate_repo.py
+
+  home-assistant-check:
+    name: Home Assistant 2026.9.4 config check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare Home Assistant blueprint tree
+        run: |
+          mkdir -p tests/ha_config/blueprints/automation/ThamerLab
+          mkdir -p tests/ha_config/blueprints/script/ThamerLab
+          cp -R blueprints/automation/* tests/ha_config/blueprints/automation/ThamerLab/
+          cp -R blueprints/script/* tests/ha_config/blueprints/script/ThamerLab/
+
+      - name: Run Home Assistant configuration validation
+        run: |
+          docker run --rm \
+            --entrypoint python \
+            -v "${{ github.workspace }}/tests/ha_config:/config" \
+            ghcr.io/home-assistant/home-assistant:2026.9.4 \
+            -m homeassistant --script check_config -c /config
