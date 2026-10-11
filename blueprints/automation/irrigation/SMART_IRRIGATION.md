@@ -4,195 +4,197 @@
   <img src="../../../assets/irrigation.svg" alt="Smart Irrigation Blueprint" width="100%">
 </p>
 
-هذا الـBlueprint مخصص لتشغيل صمام أو عدة صمامات مياه تظهر في Home Assistant ككيانات `switch`. الهدف ليس مجرد تشغيل مؤقت؛ بل إضافة طبقات تحقق قبل وأثناء وبعد السقاية.
+This Blueprint controls one or more irrigation valves that appear in Home Assistant as `switch` entities. Its purpose is not merely to run a timer. It adds verification before, during, and after the irrigation cycle.
 
-## الوظيفة باختصار
+## What It Does
 
-يستطيع العمل بثلاث طرق:
+It supports three schedule modes:
 
-1. **Sunrise & Sunset** — تشغيل عند الشروق وعند الغروب.
-2. **Custom Time** — تشغيل مرة واحدة يوميًا في وقت تحدده.
-3. **Fixed Clock Interval** — تشغيل على ساعات ثابتة محسوبة من منتصف الليل.
+1. **Sunrise & Sunset** — runs at both sunrise and sunset.
+2. **Custom Time** — runs once per day at a user-selected time.
+3. **Fixed Clock Interval** — runs at evenly spaced clock hours anchored to local midnight.
 
-ويضيف فوق الجدولة:
+It also provides:
 
-- التحقق أن الصمامات اشتغلت فعلًا.
-- منع بدء الدورة إذا كان أحد الصمامات شغالًا أصلًا.
-- فحص Flow Sensors بعد دقيقة.
-- إيقاف احترازي إذا أي Flow Sensor مختار لا يعطي قراءة موجبة.
-- اكتشاف إطفاء أحد الصمامات قبل نهاية الوقت.
-- إيقاف جميع الصمامات في النهاية.
-- التحقق أن الجميع أصبح `off`.
-- تنبيهات اختيارية.
-- تقدير استهلاك الماء من عينة التدفق.
+- Startup verification for every selected valve.
+- Optional blocking when a selected valve is already ON before the scheduled run.
+- Flow validation after the first minute.
+- Immediate shutdown when any selected flow sensor fails the configured no-flow check.
+- Detection of an early/manual valve shutdown.
+- A final OFF command for every selected valve.
+- Verification that every valve reports OFF.
+- Optional Companion App notifications.
+- An estimated water-usage calculation from the sampled flow rate.
 
-## المدخلات
+## Inputs
 
-| Input | مطلوب؟ | الافتراضي | الشرح |
+| Input | Required | Default | Purpose |
 |---|---:|---:|---|
-| Irrigation Valves | نعم | — | صمام واحد أو عدة صمامات من نوع `switch`. |
-| Irrigation Duration | نعم | 5 دقائق | إجمالي مدة الدورة. |
-| Schedule Mode | نعم | Sunrise & Sunset | أسلوب تشغيل الدورة. |
-| Custom Time | حسب الوضع | 06:00 | يستخدم فقط في Custom Time. |
-| Fixed Clock Interval | حسب الوضع | 6 ساعات | يستخدم فقط في Repeat. |
-| Flow Sensors | لا | لا يوجد | حساسات تدفق، ويفضل m³/h. |
-| Stop If No Flow | لا | مفعّل | يوقف الدورة إذا أي حساس مختار غير متاح أو ≤ 0 بعد دقيقة. |
-| Do Not Start If Already ON | لا | مفعّل | يمنع الاستحواذ على صمام كان شغالًا قبل الدورة. |
-| Valve Startup Verification | لا | 10 ثوانٍ | الوقت المتاح لكي تؤكد كل الصمامات حالة ON. |
-| Notification Devices | لا | لا يوجد | أجهزة Companion App التي تستقبل التنبيهات. |
-| Enable Notifications | لا | مفعّل | تشغيل/تعطيل إشعارات الجوال. |
+| Irrigation Valves | Yes | — | One or more `switch` entities controlled by the automation. |
+| Irrigation Duration | Yes | 5 min | Total scheduled runtime. |
+| Schedule Mode | Yes | Sunrise & Sunset | Selects the scheduling model. |
+| Custom Time | Conditional | 06:00 | Used only in Custom Time mode. |
+| Fixed Clock Interval | Conditional | 6 hours | Used only in Repeat mode. |
+| Flow Sensors | No | None | Optional flow sensors, expected in m³/h. |
+| Stop If No Flow | No | Enabled | Requires every selected flow sensor to report a positive numeric value after one minute. |
+| Do Not Start If Already ON | No | Enabled | Prevents the automation from taking control of a pre-existing manual/other run. |
+| Valve Startup Verification | No | 10 sec | Maximum time allowed for all selected valves to report ON. |
+| Notification Devices | No | None | Companion App devices for notifications. |
+| Enable Notifications | No | Enabled | Enables or disables mobile notifications. |
 
-## التنفيذ خطوة بخطوة
+## Step-by-Step Execution
 
-### 1. اختيار الـTrigger الصحيح
+### Step 1 — Select the Valid Trigger
 
-الـBlueprint يحتوي Triggers للشروق والغروب والوقت المخصص وفحص كل ساعة، لكن Condition واحدة تسمح فقط بالـTrigger الموافق لـSchedule Mode الذي اخترته.
+The Blueprint contains triggers for sunrise, sunset, the custom time, and an hourly repeat check. A template condition allows only the trigger that belongs to the selected schedule mode.
 
-في وضع **Fixed Clock Interval** القيم مقصورة على:
+For **Fixed Clock Interval**, available values are limited to:
 
 `1, 2, 3, 4, 6, 8, 12, 24`
 
-وذلك لأنها تقسم 24 ساعة بالتساوي. مثال: كل 6 ساعات = 00:00، 06:00، 12:00، 18:00.
+These values divide 24 hours evenly. For example, every six hours runs at 00:00, 06:00, 12:00, and 18:00.
 
-### 2. فحص وجود صمام شغال قبل البداية
+### Step 2 — Check for a Pre-Existing ON Valve
 
-إذا كان خيار **Do Not Start If Already ON** مفعّلًا، يفحص Home Assistant جميع الصمامات المختارة.
+When **Do Not Start If Any Valve Is Already ON** is enabled, the automation expands every selected switch and checks its current state.
 
-إذا وجد واحدًا منها `on`:
+If any selected valve is already ON:
 
-- لا يشغل أي شيء.
-- ينشئ Persistent Notification.
-- يرسل Push Notification إذا اخترت أجهزة.
-- يوقف تشغيل الأوتوميشن.
+- No new valve is turned on.
+- A persistent notification is created.
+- A mobile notification is sent if notification devices are configured.
+- The automation stops.
 
-الهدف: عدم تحويل تشغيل يدوي سابق إلى تشغيل أصبح هذا الأوتوميشن مسؤولًا عن إطفائه.
+This prevents a scheduled run from taking ownership of a valve that was already running manually or from another automation.
 
-### 3. إرسال أمر التشغيل
+### Step 3 — Send the ON Command
 
-يستدعي:
+The automation calls:
 
 `switch.turn_on`
 
-على جميع الصمامات المختارة.
+for all selected irrigation valves.
 
-### 4. التحقق من أن الجميع أصبح ON
+### Step 4 — Verify Startup
 
-ينتظر حتى المدة المحددة في **Valve Startup Verification**.
+The automation waits until every selected valve reports `on`, up to the configured startup verification timeout.
 
-النجاح يتطلب أن تكون **كل** الصمامات المختارة `on`.
+If startup cannot be confirmed:
 
-إذا لم يحصل ذلك:
+- It sends `switch.turn_off` to all selected valves as a precaution.
+- It creates a persistent notification.
+- It sends an optional mobile failure notification.
+- It stops the run.
 
-- يرسل `switch.turn_off` للجميع احترازيًا.
-- ينشئ Persistent Notification.
-- يرسل تنبيهًا اختياريًا.
-- يوقف الدورة.
+The automation therefore does not treat a successful service call as proof that the hardware actually entered the expected state.
 
-### 5. إشعار بداية الدورة
+### Step 5 — Send the Start Notification
 
-بعد نجاح التحقق فقط، يرسل إشعار البداية. لذلك لا يعتبر مجرد إرسال أمر ON نجاحًا.
+A start notification is sent only after startup verification succeeds.
 
-### 6. انتظار أول دقيقة
+### Step 6 — Wait for the First Minute
 
-ينتظر دقيقة واحدة قبل أخذ عينة التدفق.
+The automation waits one minute before sampling flow.
 
-هذه الدقيقة جزء من إجمالي مدة السقاية وليست دقيقة إضافية.
+This minute is part of the requested irrigation duration; it is not added on top of it.
 
-### 7. التأكد أن الصمامات ما زالت ON
+### Step 7 — Confirm That All Valves Are Still ON
 
-إذا انطفأ أي صمام خلال الدقيقة الأولى:
+After the first minute, the automation checks every selected valve again.
 
-- يطفئ بقية الصمامات.
-- يعتبر التشغيل توقف مبكرًا/يدويًا.
-- يرسل تنبيهًا اختياريًا.
-- ينهي الدورة.
+If any valve is no longer ON:
 
-### 8. فحص التدفق
+- It sends OFF to every selected valve.
+- It optionally sends an early-stop notification.
+- It stops the run.
 
-إذا اخترت Flow Sensors وكانت حماية No-Flow مفعلة:
+### Step 8 — Validate Flow
 
-- يقرأ **كل حساس** مختار.
-- أي قراءة `unavailable` أو غير رقمية تعامل كفشل.
-- أي قراءة `<= 0` تعامل كفشل.
-- إذا فشل أي حساس، يطفئ جميع الصمامات وينهي الدورة.
+When flow sensors are selected and no-flow protection is enabled:
 
-هذا أنسب عندما يكون كل صمام يعمل في نفس الدورة وله حساس تدفق يجب أن يكون موجبًا.
+- Every selected flow sensor is read.
+- An unavailable or non-numeric value is treated as a failure.
+- A value of zero or below is treated as a failure.
+- If any selected sensor fails, all selected valves are turned OFF and the run stops.
 
-### 9. مراقبة الإطفاء المبكر لبقية المدة
+This design is intentionally stricter than checking only the combined flow. One healthy branch cannot hide a failed branch.
 
-إذا بقي وقت بعد الدقيقة الأولى، ينتظر أحد أمرين:
+### Step 9 — Monitor the Remaining Runtime
 
-- انتهاء المدة.
-- أو انتقال أي صمام مختار من `on` إلى `off`.
+If time remains after the first minute, the automation waits for either:
 
-إذا انطفأ صمام مبكرًا، يطفئ البقية وينهي الدورة باعتبارها إيقافًا يدويًا أو غير متوقع.
+- The remaining duration to expire.
+- Any selected valve to transition from `on` to `off`.
 
-### 10. إيقاف الدورة
+If any selected valve turns OFF early, all remaining valves are turned OFF and the run ends as an early/manual shutdown.
 
-عند اكتمال الوقت يرسل:
+### Step 10 — End the Scheduled Cycle
+
+When the requested duration expires, the automation sends:
 
 `switch.turn_off`
 
-إلى جميع الصمامات.
+to every selected valve.
 
-### 11. التحقق من الإيقاف
+### Step 11 — Verify Final OFF State
 
-ينتظر حتى 15 ثانية حتى تصبح جميع الصمامات `off`.
+The automation waits up to 15 seconds for every selected valve to report `off`.
 
-إذا لم يؤكد أحدها الإيقاف:
+If any valve does not confirm OFF:
 
-- لا يعلن نجاح الدورة.
-- ينشئ Persistent Notification.
-- يرسل Push Notification إذا كان مفعّلًا.
-- يطلب منك التحقق من النظام.
+- The run is not reported as successful.
+- A persistent notification is created.
+- An optional mobile failure notification is sent.
+- The user is instructed to check the irrigation system.
 
-### 12. تقدير استهلاك الماء
+### Step 12 — Estimate Water Usage
 
-إذا اخترت Flow Sensors، يستخدم مجموع قراءات التدفق المأخوذة بعد الدقيقة الأولى:
+If flow sensors were selected, the automation uses the combined one-minute flow sample:
 
 ```text
 Estimated m³ = sampled total flow (m³/h) × duration (hours)
 Estimated liters = Estimated m³ × 1000
 ```
 
-هذه **قيمة تقديرية** وليست عداد استهلاك فعلي متكامل عبر الزمن.
+This is an **estimate**, not a true integrated water meter.
 
-## ماذا يحدث عند Restart لـHome Assistant؟
+## Restart Behavior
 
-أي Automation قيد التنفيذ يتوقف عند Restart. لذلك لا ينبغي اعتبار هذا الـBlueprint وحده طبقة الأمان الوحيدة لصمام ماء.
+If Home Assistant restarts while an automation is actively waiting or delaying, the active run is interrupted.
 
-استخدم معه:
+For real water hardware, this Blueprint should therefore not be treated as the only safety layer. Use it with:
 
 - [Long-running Water Safety Watchdog](./WATER_SAFETY.md)
-- ويفضل Hardware Auto-Close إن كان الصمام يدعمه.
+- A device-side auto-close feature when available.
+- Independent flow monitoring when appropriate.
 
-## حالات الفشل المغطاة
+## Failure Cases Covered
 
-| الحالة | التصرف |
+| Situation | Result |
 |---|---|
-| صمام شغال قبل البداية | Skip بدون أخذ السيطرة عليه |
-| صمام لا يصل إلى ON | إطفاء الجميع + خطأ |
-| صمام ينطفئ خلال أول دقيقة | إطفاء البقية + إنهاء |
-| Flow Sensor غير متاح/صفر | إطفاء الجميع + خطأ |
-| صمام ينطفئ قبل نهاية الوقت | إطفاء البقية + إنهاء |
-| لم يتم تأكيد OFF في النهاية | تنبيه خطأ، بدون ادعاء نجاح |
+| A selected valve is already ON before start | Scheduled run is skipped |
+| A selected valve never confirms ON | All selected valves receive OFF and the run fails |
+| A selected valve turns OFF during the first minute | Remaining valves are turned OFF |
+| A selected flow sensor is unavailable or not positive | All selected valves are turned OFF |
+| A selected valve turns OFF before the scheduled end | Remaining valves are turned OFF |
+| Final OFF state is not confirmed | Failure notification; no success claim |
 
-## ما الذي لا يضمنه؟
+## What This Blueprint Cannot Prove
 
-- حالة `off` في Home Assistant لا تثبت ماديًا أن الماء توقف.
-- تقدير اللترات ليس عداد فوترة.
-- Restart أثناء دورة السقاية يوقف سياق الأوتوميشن الجاري.
-- صحة Flow Sensor نفسها تعتمد على الجهاز والتكامل.
+- A Home Assistant `off` state does not physically prove that water flow stopped.
+- The estimated liters value is not a billing-grade measurement.
+- A Home Assistant restart can interrupt an active sequence.
+- Flow-sensor accuracy depends on the device, firmware, and integration.
 
-## اختبار آمن قبل الاعتماد
+## Safe Live-Test Checklist
 
-1. أنشئ نسخة بمدة دقيقة واحدة.
-2. اختر صمامًا يمكنك رؤيته فعليًا.
-3. تأكد أن الصمام يبدأ ويغلق.
-4. جرّب إطفاء الصمام يدويًا أثناء التشغيل.
-5. إذا عندك Flow Sensor، اختبر قراءة موجبة أثناء الماء.
-6. اختبر سيناريو No-Flow بشكل مراقب.
-7. بعد ذلك فعّل المدة والجدول الحقيقيين.
+1. Create a test instance with a one-minute duration.
+2. Use a valve you can physically observe.
+3. Confirm that it turns ON and then OFF.
+4. Manually turn the valve OFF during the run and verify early-stop handling.
+5. If flow sensors are configured, verify that each selected sensor reports a positive value during real flow.
+6. Test the no-flow path under supervision.
+7. Only after those checks pass should you enable the production runtime and schedule.
 
 ## Import
 
