@@ -1,11 +1,15 @@
 blueprint:
   name: "💡 Outdoor Light — Abnormal State Alert"
+  author: "ThamerLab"
   description: >
-    Notify when an outdoor light remains OFF at night or ON during the day for
-    a chosen period. The notification offers Fix and Keep buttons. It is designed
-    to complement, not replace, the dusk-to-dawn automation.
+    Alerts when a selected outdoor light stays OFF while the sun is below the
+    chosen elevation, or stays ON while the sun is above it, for the configured
+    mismatch duration. The notification offers Fix and Keep actions with unique
+    action identifiers generated from the automation context.
   domain: automation
   source_url: https://github.com/ThamerLab/Home_Assistant/blob/main/blueprints/automation/lighting/outside_light_attention.yaml
+  homeassistant:
+    min_version: "2024.10.0"
 
   input:
     outside_light:
@@ -28,7 +32,7 @@ blueprint:
 
     mismatch_minutes:
       name: "⏱️ Mismatch Duration"
-      description: How long the abnormal state must persist before alerting.
+      description: How long the abnormal state must remain true before alerting.
       default: 30
       selector:
         number:
@@ -37,6 +41,13 @@ blueprint:
           step: 5
           unit_of_measurement: minutes
           mode: slider
+
+    notification_tag:
+      name: "🏷️ Notification Tag"
+      description: Use a unique value if more than one instance alerts the same phone.
+      default: "outside_light_attention"
+      selector:
+        text:
 
     notify_device:
       name: "📱 Device to Notify"
@@ -48,56 +59,37 @@ blueprint:
 variables:
   light_target: !input outside_light
   elevation_limit: !input sun_elevation
-  action_fix: "{{ 'OUTSIDE_LIGHT_FIX_' ~ context.id }}"
-  action_keep: "{{ 'OUTSIDE_LIGHT_KEEP_' ~ context.id }}"
+  notification_tag_value: !input notification_tag
 
 triggers:
-  - trigger: state
-    entity_id: !input outside_light
-    to: "off"
-    for:
-      minutes: !input mismatch_minutes
-    id: light_off_long
-
-  - trigger: state
-    entity_id: !input outside_light
-    to: "on"
-    for:
-      minutes: !input mismatch_minutes
-    id: light_on_long
-
-  - trigger: numeric_state
-    entity_id: sun.sun
-    attribute: elevation
-    below: !input sun_elevation
-    for:
-      minutes: !input mismatch_minutes
-    id: night_long
-
-  - trigger: numeric_state
-    entity_id: sun.sun
-    attribute: elevation
-    above: !input sun_elevation
-    for:
-      minutes: !input mismatch_minutes
-    id: day_long
-
-conditions:
-  - condition: template
+  - trigger: template
     value_template: >
       {% set elevation = state_attr('sun.sun', 'elevation') %}
       {% if elevation is none %}
         false
       {% else %}
         {{
-          (elevation | float < elevation_limit | float and is_state(light_target, 'off'))
+          (
+            elevation | float < elevation_limit | float
+            and is_state(light_target, 'off')
+          )
           or
-          (elevation | float > elevation_limit | float and is_state(light_target, 'on'))
+          (
+            elevation | float > elevation_limit | float
+            and is_state(light_target, 'on')
+          )
         }}
       {% endif %}
+    for:
+      minutes: !input mismatch_minutes
+    id: mismatch
+
+conditions: []
 
 actions:
   - variables:
+      action_fix: "{{ 'OUTSIDE_LIGHT_FIX_' ~ context.id }}"
+      action_keep: "{{ 'OUTSIDE_LIGHT_KEEP_' ~ context.id }}"
       situation: >
         {% set elevation = state_attr('sun.sun', 'elevation') | float(0) %}
         {% if elevation < elevation_limit | float and is_state(light_target, 'off') %}
@@ -117,9 +109,9 @@ actions:
             domain: mobile_app
             type: notify
             title: "🌙 Outdoor light is OFF"
-            message: "The outdoor light is still off even though it is night. Fix it?"
+            message: "The outdoor light has remained OFF while it is night. Fix it?"
             data:
-              tag: outside_light_attention
+              tag: "{{ notification_tag_value }}"
               actions:
                 - action: "{{ action_fix }}"
                   title: "💡 Turn it on"
@@ -134,9 +126,9 @@ actions:
             domain: mobile_app
             type: notify
             title: "☀️ Outdoor light is still ON"
-            message: "The outdoor light is still on during the day. Fix it?"
+            message: "The outdoor light has remained ON during the day. Fix it?"
             data:
-              tag: outside_light_attention
+              tag: "{{ notification_tag_value }}"
               actions:
                 - action: "{{ action_fix }}"
                   title: "🔌 Turn it off"
@@ -144,7 +136,7 @@ actions:
                   title: "Keep it on"
 
     default:
-      - stop: "State resolved before notification"
+      - stop: "Mismatch resolved before notification"
 
   - wait_for_trigger:
       - trigger: event
@@ -159,21 +151,23 @@ actions:
           action: "{{ action_keep }}"
         id: keep
 
-      - trigger: state
-        entity_id: !input outside_light
-        id: light_changed
-
-      - trigger: numeric_state
-        entity_id: sun.sun
-        attribute: elevation
-        below: !input sun_elevation
-        id: sun_below
-
-      - trigger: numeric_state
-        entity_id: sun.sun
-        attribute: elevation
-        above: !input sun_elevation
-        id: sun_above
+      - trigger: template
+        value_template: >
+          {% set elevation = state_attr('sun.sun', 'elevation') | float(0) %}
+          {{
+            not (
+              (
+                elevation < elevation_limit | float
+                and is_state(light_target, 'off')
+              )
+              or
+              (
+                elevation > elevation_limit | float
+                and is_state(light_target, 'on')
+              )
+            )
+          }}
+        id: resolved
 
     timeout: "06:00:00"
     continue_on_timeout: true
@@ -182,31 +176,41 @@ actions:
       - conditions:
           - condition: template
             value_template: >
-              {{ wait.completed
-                 and wait.trigger is not none
-                 and wait.trigger.id == 'fix' }}
+              {{
+                wait.completed
+                and wait.trigger is not none
+                and wait.trigger.id == 'fix'
+                and situation == 'night_off'
+                and state_attr('sun.sun', 'elevation') | float(0) < elevation_limit | float
+                and is_state(light_target, 'off')
+              }}
         sequence:
-          - choose:
-              - conditions:
-                  - condition: template
-                    value_template: >
-                      {{ state_attr('sun.sun', 'elevation') | float(0)
-                         < elevation_limit | float }}
-                sequence:
-                  - action: light.turn_on
-                    target:
-                      entity_id: !input outside_light
-            default:
-              - action: light.turn_off
-                target:
-                  entity_id: !input outside_light
+          - action: light.turn_on
+            target:
+              entity_id: !input outside_light
+
+      - conditions:
+          - condition: template
+            value_template: >
+              {{
+                wait.completed
+                and wait.trigger is not none
+                and wait.trigger.id == 'fix'
+                and situation == 'day_on'
+                and state_attr('sun.sun', 'elevation') | float(0) > elevation_limit | float
+                and is_state(light_target, 'on')
+              }}
+        sequence:
+          - action: light.turn_off
+            target:
+              entity_id: !input outside_light
 
   - device_id: !input notify_device
     domain: mobile_app
     type: notify
     message: clear_notification
     data:
-      tag: outside_light_attention
+      tag: "{{ notification_tag_value }}"
 
 mode: single
 max_exceeded: silent
