@@ -313,6 +313,14 @@ actions:
           {% set ns.total = ns.total + (states(flow_entity) | float(0)) %}
         {% endfor %}
         {{ ns.total | round(3) }}
+      bad_flow_count: >
+        {% set ns = namespace(count=0) %}
+        {% for flow_entity in flows %}
+          {% if states(flow_entity) | float(-1) <= 0 %}
+            {% set ns.count = ns.count + 1 %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.count }}
       remaining_minutes: "{{ [duration | float(0) - 1, 0] | max }}"
 
   - choose:
@@ -347,7 +355,7 @@ actions:
               {{
                 no_flow_protection
                 and (flows | count > 0)
-                and (total_flow | float(0) <= 0)
+                and (bad_flow_count | int(0) > 0)
               }}
         sequence:
           - action: switch.turn_off
@@ -357,7 +365,9 @@ actions:
           - action: persistent_notification.create
             data:
               title: "🚨 Irrigation no-flow protection"
-              message: "No water flow was detected after one minute. Irrigation was stopped."
+              message: >
+                At least one selected flow sensor was unavailable, zero, or
+                below zero after one minute. Irrigation was stopped.
           - choose:
               - conditions:
                   - condition: template
@@ -370,7 +380,7 @@ actions:
                           domain: mobile_app
                           type: notify
                           title: "🚨 Irrigation no-flow protection"
-                          message: "No water flow was detected after one minute. Irrigation was stopped."
+                          message: "At least one selected flow sensor did not confirm positive flow. Irrigation was stopped."
           - stop: "No flow detected"
 
   - choose:
