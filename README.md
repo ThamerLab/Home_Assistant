@@ -13,7 +13,7 @@
 
 **Reusable Home Assistant Blueprints with detailed Arabic documentation, dedicated visuals, failure handling, and automated validation.**
 
-[Blueprints](#-blueprints) · [Automation Catalog](./docs/AUTOMATION_CATALOG.md) · [Installation](./docs/INSTALLATION.md) · [Validation](./docs/VALIDATION.md)
+[Blueprints](#-blueprints) · [Automation Catalog](./docs/AUTOMATION_CATALOG.md) · [Full Audit](./docs/AUDIT_2026-10-11.md) · [Installation](./docs/INSTALLATION.md) · [Validation](./docs/VALIDATION.md)
 
 </div>
 
