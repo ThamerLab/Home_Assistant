@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="360" viewBox="0 0 900 360" role="img" aria-labelledby="title desc">
+  <title id="title">Long Running Water Safety</title>
+  <desc id="desc">Blueprint artwork for water valve runtime monitoring and critical alerts.</desc>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#081C2D"/><stop offset=".58" stop-color="#0A4C70"/><stop offset="1" stop-color="#075C64"/></linearGradient></defs>
+  <rect width="900" height="360" rx="30" fill="url(#bg)"/>
+  <text x="54" y="68" fill="#AFE9FF" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700">WATER SAFETY</text>
+  <text x="54" y="120" fill="#FFF" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800">Long-running Valve Watchdog</text>
+  <text x="54" y="160" fill="#D7EEF5" font-family="Arial, Helvetica, sans-serif" font-size="20">Critical alert • Stop all • Verify OFF • Snooze & re-check</text>
+  <g transform="translate(55 205)">
+    <rect width="170" height="54" rx="27" fill="#41BDF5" opacity=".16" stroke="#41BDF5" stroke-opacity=".65"/>
+    <text x="85" y="35" text-anchor="middle" fill="#E8F8FF" font-family="Arial" font-size="17" font-weight="700">10 min default</text>
+    <rect x="186" width="170" height="54" rx="27" fill="#EF4444" opacity=".16" stroke="#F87171" stroke-opacity=".7"/>
+    <text x="271" y="35" text-anchor="middle" fill="#FFECEC" font-family="Arial" font-size="17" font-weight="700">Critical alert</text>
+    <rect x="372" width="190" height="54" rx="27" fill="#10B981" opacity=".16" stroke="#10B981" stroke-opacity=".65"/>
+    <text x="467" y="35" text-anchor="middle" fill="#EAFFF7" font-family="Arial" font-size="17" font-weight="700">Verify shutdown</text>
+  </g>
+  <g transform="translate(715 65)">
+    <path d="M75 0C41 52 8 91 8 136a67 67 0 0 0 134 0C142 91 109 52 75 0Z" fill="#41BDF5"/>
+    <circle cx="124" cy="220" r="47" fill="#EF4444"/>
+    <path d="M124 193v30m0 20v2" stroke="#FFF" stroke-width="10" stroke-linecap="round"/>
+  </g>
+</svg>
