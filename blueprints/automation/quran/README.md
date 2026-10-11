@@ -5,27 +5,27 @@
   <img src="../../../assets/quran-toggle.svg" alt="Quran Toggle" width="49%">
 </p>
 
-الهدف هو جعل **Music Assistant طبقة التشغيل الوحيدة** للقرآن، وترك Home Assistant مسؤولًا عن الجدولة والمنطق.
+The design goal is to make **Music Assistant the only playback layer** for these Quran workflows while Home Assistant handles scheduling, conditions, and notifications.
 
 ## Automation: Sunrise & Sunset
 
 `music_assistant_sunrise_sunset.yaml`
 
-- تشغيل URI دقيق عند الشروق والغروب.
-- `enqueue: replace`.
-- تحقق `playing` + نفس `media_content_id`.
-- Failure path واضح.
-- لا ينتظر انتهاء التلاوة.
+- Plays an exact Music Assistant URI at sunrise and sunset.
+- Uses `enqueue: replace`.
+- Verifies both `playing` and the exact `media_content_id`.
+- Includes an explicit failure path.
+- Does not wait for the recitation to finish.
 
-[📖 الشرح التفصيلي خطوة بخطوة](./SUNRISE_SUNSET.md)
+[📖 Detailed step-by-step guide](./SUNRISE_SUNSET.md)
 
 ## Script: Safe Toggle
 
 `../../script/quran/music_assistant_quran_toggle.yaml`
 
-- نفس URI Playing → Stop + Verify.
-- نفس URI Paused → Resume + Verify.
-- غير ذلك → Replace Queue + Play + Verify.
-- MA-only player selector.
+- Same URI Playing → Stop and verify.
+- Same URI Paused → Resume and verify.
+- Any other state or content → Replace queue, play, and verify.
+- Player selector is restricted to Music Assistant media players.
 
-[📖 الشرح التفصيلي للسكريبت](../../script/quran/README.md)
+[📖 Detailed script guide](../../script/quran/README.md)
