@@ -1,12 +1,15 @@
 blueprint:
   name: "🚨 Water Valves — Long Running Safety Watchdog"
+  author: "ThamerLab"
   description: >
-    Critical safety monitor for water/irrigation switches. Alerts when any
-    selected valve remains ON longer than the configured threshold. Offers
-    Stop all or Keep running, verifies shutdown, and runs a five-minute watchdog
-    so a Home Assistant restart does not permanently lose monitoring.
+    Safety watchdog for water or irrigation switches. Alerts when any selected
+    switch remains ON longer than the chosen threshold, offers Stop all or Keep
+    running, verifies the reported OFF state after a stop command, and performs
+    a periodic fallback check. Action identifiers are unique per run.
   domain: automation
   source_url: https://github.com/ThamerLab/Home_Assistant/blob/main/blueprints/automation/irrigation/long_running_water_safety.yaml
+  homeassistant:
+    min_version: "2024.10.0"
 
   input:
     water_switches:
@@ -31,7 +34,8 @@ blueprint:
     keep_minutes:
       name: "💧 Snooze After Keep Running"
       description: >
-        If Keep running is selected, suppress another alert for this many minutes.
+        When Keep running is selected, this automation stays busy for the chosen
+        period. After it ends, the five-minute watchdog can alert again if needed.
       default: 30
       selector:
         number:
@@ -40,6 +44,15 @@ blueprint:
           step: 5
           unit_of_measurement: minutes
           mode: slider
+
+    notification_tag:
+      name: "🏷️ Notification Tag"
+      description: >
+        Use a unique value if you create more than one instance of this blueprint
+        for the same phone.
+      default: "long_running_water"
+      selector:
+        text:
 
     notify_device:
       name: "📱 Device to Notify"
@@ -52,6 +65,7 @@ variables:
   switches: !input water_switches
   threshold_minutes: !input long_run_minutes
   keep_running_minutes: !input keep_minutes
+  notification_tag_value: !input notification_tag
 
 triggers:
   - trigger: state
@@ -65,6 +79,10 @@ triggers:
     minutes: "/5"
     id: watchdog
 
+  - trigger: homeassistant
+    event: start
+    id: startup
+
 conditions:
   - condition: template
     value_template: >
@@ -73,9 +91,12 @@ conditions:
       {% else %}
         {% set ns = namespace(found=false) %}
         {% for item in expand(switches) %}
-          {% if item.state == 'on'
-                and (as_timestamp(now()) - as_timestamp(item.last_changed))
-                    >= (threshold_minutes | float * 60) %}
+          {% if
+            item.state == 'on'
+            and
+            (as_timestamp(now()) - as_timestamp(item.last_changed))
+            >= (threshold_minutes | float(0) * 60)
+          %}
             {% set ns.found = true %}
           {% endif %}
         {% endfor %}
@@ -103,7 +124,7 @@ actions:
 
       Stop the water now?
     data:
-      tag: long_running_water
+      tag: "{{ notification_tag_value }}"
       push:
         sound:
           name: default
@@ -129,6 +150,16 @@ actions:
           action: "{{ action_keep }}"
         id: keep
 
+      - trigger: template
+        value_template: >
+          {{
+            expand(switches)
+            | rejectattr('state', 'eq', 'off')
+            | list
+            | count == 0
+          }}
+        id: all_off
+
     timeout: "00:05:00"
     continue_on_timeout: true
 
@@ -136,9 +167,11 @@ actions:
       - conditions:
           - condition: template
             value_template: >
-              {{ wait.completed
-                 and wait.trigger is not none
-                 and wait.trigger.id == 'stop' }}
+              {{
+                wait.completed
+                and wait.trigger is not none
+                and wait.trigger.id == 'stop'
+              }}
         sequence:
           - action: switch.turn_off
             continue_on_error: true
@@ -146,10 +179,12 @@ actions:
               entity_id: !input water_switches
 
           - wait_template: >
-              {{ expand(switches)
-                 | rejectattr('state', 'eq', 'off')
-                 | list
-                 | count == 0 }}
+              {{
+                expand(switches)
+                | rejectattr('state', 'eq', 'off')
+                | list
+                | count == 0
+              }}
             timeout: "00:00:15"
             continue_on_timeout: true
 
@@ -158,7 +193,7 @@ actions:
             type: notify
             message: clear_notification
             data:
-              tag: long_running_water
+              tag: "{{ notification_tag_value }}"
 
           - choose:
               - conditions:
@@ -169,16 +204,17 @@ actions:
                     domain: mobile_app
                     type: notify
                     title: "✅ Water stopped"
-                    message: "All selected water switches are confirmed OFF."
+                    message: "All selected water switches are confirmed OFF by Home Assistant."
             default:
               - device_id: !input notify_device
                 domain: mobile_app
                 type: notify
                 title: "🚨 Could not confirm shutdown"
                 message: >
-                  The stop command was sent but one or more selected switches
-                  are not confirmed OFF. Check the water system immediately.
+                  The OFF command was sent, but one or more selected switches
+                  did not report OFF within 15 seconds. Check the water system immediately.
                 data:
+                  tag: "{{ notification_tag_value }}_stop_failed"
                   push:
                     sound:
                       name: default
@@ -188,16 +224,18 @@ actions:
       - conditions:
           - condition: template
             value_template: >
-              {{ wait.completed
-                 and wait.trigger is not none
-                 and wait.trigger.id == 'keep' }}
+              {{
+                wait.completed
+                and wait.trigger is not none
+                and wait.trigger.id == 'keep'
+              }}
         sequence:
           - device_id: !input notify_device
             domain: mobile_app
             type: notify
             message: clear_notification
             data:
-              tag: long_running_water
+              tag: "{{ notification_tag_value }}"
 
           - device_id: !input notify_device
             domain: mobile_app
@@ -205,18 +243,28 @@ actions:
             title: "💧 Water kept running"
             message: >
               Monitoring is snoozed for {{ keep_running_minutes }} minutes.
-              If water is still running afterwards, the watchdog will alert again.
+              If a selected switch is still ON afterwards, the watchdog can alert again.
 
           - delay:
               minutes: !input keep_minutes
 
-    default:
-      - device_id: !input notify_device
-        domain: mobile_app
-        type: notify
-        message: clear_notification
-        data:
-          tag: long_running_water
+      - conditions:
+          - condition: template
+            value_template: >
+              {{
+                wait.completed
+                and wait.trigger is not none
+                and wait.trigger.id == 'all_off'
+              }}
+        sequence:
+          - device_id: !input notify_device
+            domain: mobile_app
+            type: notify
+            message: clear_notification
+            data:
+              tag: "{{ notification_tag_value }}"
+
+    default: []
 
 mode: single
 max_exceeded: silent
