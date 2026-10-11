@@ -1,0 +1,140 @@
+blueprint:
+  name: "📖 Quran via Music Assistant — Sunrise & Sunset"
+  description: >
+    Play an exact Quran item from Music Assistant at sunrise and sunset.
+    Uses the Music Assistant media_player entity, replaces the queue, verifies
+    that playback started, and optionally notifies one or more Home Assistant
+    Companion App devices. It does not wait for the full recitation to finish.
+  domain: automation
+  source_url: https://github.com/ThamerLab/Home_Assistant/blob/main/blueprints/automation/quran/music_assistant_sunrise_sunset.yaml
+
+  input:
+    quran_player:
+      name: "🔊 Music Assistant Player"
+      description: >
+        Select the media_player entity created by the Music Assistant integration,
+        not the native Apple TV / Google Cast entity.
+      selector:
+        entity:
+          filter:
+            domain: media_player
+
+    quran_uri:
+      name: "📚 Music Assistant URI"
+      description: >
+        Exact Music Assistant library URI, for example library://track/151.
+      default: "library://track/151"
+      selector:
+        text:
+
+    media_type:
+      name: "🎵 Media Type"
+      default: track
+      selector:
+        select:
+          options:
+            - track
+            - album
+            - playlist
+            - radio
+
+    notify_devices:
+      name: "📱 Notification Devices"
+      description: Optional Home Assistant Companion App devices.
+      default: []
+      selector:
+        device:
+          filter:
+            integration: mobile_app
+          multiple: true
+
+variables:
+  player: !input quran_player
+  uri: !input quran_uri
+  notify_targets: !input notify_devices
+
+triggers:
+  - trigger: sun
+    event: sunrise
+    id: sunrise
+
+  - trigger: sun
+    event: sunset
+    id: sunset
+
+conditions: []
+
+actions:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ states(player) in ['unavailable', 'unknown'] }}"
+        sequence:
+          - repeat:
+              for_each: "{{ notify_targets }}"
+              sequence:
+                - device_id: "{{ repeat.item }}"
+                  domain: mobile_app
+                  type: notify
+                  title: "⚠️ Quran playback unavailable"
+                  message: "Music Assistant player is {{ states(player) }}."
+          - action: persistent_notification.create
+            data:
+              title: "⚠️ Quran playback unavailable"
+              message: "Music Assistant player {{ player }} is {{ states(player) }}."
+          - stop: "Music Assistant player unavailable"
+
+  - action: music_assistant.play_media
+    target:
+      entity_id: !input quran_player
+    data:
+      media_id: !input quran_uri
+      media_type: !input media_type
+      enqueue: replace
+
+  - wait_template: >
+      {{ is_state(player, 'playing')
+         and state_attr(player, 'media_content_id') == uri }}
+    timeout: "00:00:30"
+    continue_on_timeout: true
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ wait.completed }}"
+        sequence:
+          - repeat:
+              for_each: "{{ notify_targets }}"
+              sequence:
+                - device_id: "{{ repeat.item }}"
+                  domain: mobile_app
+                  type: notify
+                  title: "📖 Quran playback started"
+                  message: >
+                    {% if trigger.id == 'sunrise' %}
+                      Sunrise playback started successfully.
+                    {% else %}
+                      Sunset playback started successfully.
+                    {% endif %}
+    default:
+      - repeat:
+          for_each: "{{ notify_targets }}"
+          sequence:
+            - device_id: "{{ repeat.item }}"
+              domain: mobile_app
+              type: notify
+              title: "⚠️ Quran playback failed"
+              message: >
+                Music Assistant did not confirm the requested URI within 30 seconds.
+                Player state: {{ states(player) }}.
+      - action: persistent_notification.create
+        data:
+          title: "⚠️ Quran playback failed"
+          message: >
+            Player: {{ player }}
+            Requested URI: {{ uri }}
+            State: {{ states(player) }}
+            Current item: {{ state_attr(player, 'media_content_id') }}
+
+mode: single
+max_exceeded: silent
