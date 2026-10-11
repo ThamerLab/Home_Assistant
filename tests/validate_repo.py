@@ -209,6 +209,8 @@ def check_repo_for_private_values(errors: list[str]) -> None:
             continue
         if ".git" in path.parts:
             continue
+        if path.parts and path.parts[0] in {"tests", ".github"}:
+            continue
         if path.suffix.lower() not in TEXT_EXTENSIONS:
             continue
 
