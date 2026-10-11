@@ -17,7 +17,7 @@ blueprint:
     total usage = total flow after one minute × irrigation duration in hours
 
   domain: automation
-  source_url: https://github.com/ThamerLab/HA/blob/main/blueprints/automation/irrigation/smart_irrigation.yaml
+  source_url: https://github.com/ThamerLab/Home_Assistant/blob/main/blueprints/automation/irrigation/smart_irrigation.yaml
 
   input:
     irrigation_switches:
