@@ -1,12 +1,16 @@
 blueprint:
   name: "🌙 Outdoor Lights — Dusk to Dawn"
+  author: "ThamerLab"
   description: >
-    Turn an outdoor light on when the sun elevation drops below the selected
-    threshold and off when it rises above it. The automation retries once if
-    the light does not respond. Manual changes are respected after the crossing
-    event; there is no startup force-sync.
+    Turns an outdoor light ON when sun elevation crosses below the selected
+    threshold and OFF when it crosses above it. Verifies the result, retries once
+    after five seconds if needed, and reports a persistent/mobile failure only
+    if the second attempt is still not confirmed. No startup force-sync is used,
+    so manual changes are not immediately overridden after restart.
   domain: automation
   source_url: https://github.com/ThamerLab/Home_Assistant/blob/main/blueprints/automation/lighting/outside_lights_dusk_dawn.yaml
+  homeassistant:
+    min_version: "2024.10.0"
 
   input:
     outside_light:
@@ -18,8 +22,7 @@ blueprint:
 
     sun_elevation:
       name: "☀️ Sun Elevation Threshold"
-      description: >
-        Light turns on below this value and off above it.
+      description: Light turns ON below this value and OFF above it.
       default: 5
       selector:
         number:
@@ -29,8 +32,19 @@ blueprint:
           unit_of_measurement: "°"
           mode: slider
 
+    notify_devices:
+      name: "📱 Notification Devices"
+      description: Optional Companion App devices used only if the light fails after the retry.
+      default: []
+      selector:
+        device:
+          filter:
+            integration: mobile_app
+          multiple: true
+
 variables:
   light_target: !input outside_light
+  notify_targets: !input notify_devices
 
 triggers:
   - trigger: numeric_state
@@ -48,44 +62,52 @@ triggers:
 conditions: []
 
 actions:
+  - variables:
+      desired_state: "{{ 'on' if trigger.id == 'dusk' else 'off' }}"
+      desired_action: "{{ 'light.turn_on' if trigger.id == 'dusk' else 'light.turn_off' }}"
+
+  - action: "{{ desired_action }}"
+    target:
+      entity_id: !input outside_light
+
+  - wait_template: "{{ is_state(light_target, desired_state) }}"
+    timeout: "00:00:10"
+    continue_on_timeout: true
+
   - choose:
       - conditions:
-          - condition: trigger
-            id: dusk
+          - condition: template
+            value_template: "{{ not wait.completed }}"
         sequence:
-          - action: light.turn_on
+          - delay: "00:00:05"
+          - action: "{{ desired_action }}"
             target:
               entity_id: !input outside_light
-          - wait_template: "{{ is_state(light_target, 'on') }}"
+          - wait_template: "{{ is_state(light_target, desired_state) }}"
             timeout: "00:00:10"
             continue_on_timeout: true
-          - if:
-              - condition: template
-                value_template: "{{ not is_state(light_target, 'on') }}"
-            then:
-              - delay: "00:00:05"
-              - action: light.turn_on
-                target:
-                  entity_id: !input outside_light
 
-      - conditions:
-          - condition: trigger
-            id: dawn
-        sequence:
-          - action: light.turn_off
-            target:
-              entity_id: !input outside_light
-          - wait_template: "{{ is_state(light_target, 'off') }}"
-            timeout: "00:00:10"
-            continue_on_timeout: true
-          - if:
-              - condition: template
-                value_template: "{{ not is_state(light_target, 'off') }}"
-            then:
-              - delay: "00:00:05"
-              - action: light.turn_off
-                target:
-                  entity_id: !input outside_light
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ not wait.completed }}"
+                sequence:
+                  - action: persistent_notification.create
+                    data:
+                      title: "⚠️ Outdoor light did not respond"
+                      message: >
+                        The automation tried twice to set {{ light_target }} to
+                        {{ desired_state }}, but the final state was not confirmed.
+                  - repeat:
+                      for_each: "{{ notify_targets }}"
+                      sequence:
+                        - device_id: "{{ repeat.item }}"
+                          domain: mobile_app
+                          type: notify
+                          title: "⚠️ Outdoor light did not respond"
+                          message: >
+                            Two attempts were made, but the outdoor light did not
+                            report {{ desired_state }}.
 
 mode: single
 max_exceeded: silent
