@@ -1,0 +1,115 @@
+blueprint:
+  name: "🔔 Available Updates — Daily Summary"
+  author: "ThamerLab"
+  description: >
+    Sends a daily Home Assistant Companion App summary when one or more update
+    entities are available. Optional priority update entities are listed first;
+    all remaining available updates are grouped separately. The notification
+    opens Home Assistant's Updates page.
+  domain: automation
+  source_url: https://github.com/ThamerLab/Home_Assistant/blob/main/blueprints/automation/system/available_updates_notification.yaml
+  homeassistant:
+    min_version: "2026.9.4"
+
+  input:
+    notification_time:
+      name: "🕘 Notification Time"
+      default: "09:30:00"
+      selector:
+        time:
+
+    priority_updates:
+      name: "🚨 Priority Update Entities"
+      description: >
+        Optional update entities you want listed under Priority when an update
+        is available, such as Home Assistant Core, OS, Supervisor, Zigbee2MQTT,
+        or other infrastructure components.
+      default: []
+      selector:
+        entity:
+          filter:
+            domain: update
+          multiple: true
+
+    notify_devices:
+      name: "📱 Notification Devices"
+      selector:
+        device:
+          filter:
+            integration: mobile_app
+          multiple: true
+
+    notification_tag:
+      name: "🏷️ Notification Tag"
+      description: Use a unique value if you create multiple update-summary automations.
+      default: "home_assistant_updates"
+      selector:
+        text:
+
+variables:
+  priority_entities: !input priority_updates
+  notify_targets: !input notify_devices
+  notification_tag_value: !input notification_tag
+
+triggers:
+  - trigger: time
+    at: !input notification_time
+
+conditions:
+  - condition: template
+    value_template: >
+      {{
+        states.update
+        | selectattr('state', 'eq', 'on')
+        | list
+        | count > 0
+      }}
+
+actions:
+  - variables:
+      available_count: >
+        {{
+          states.update
+          | selectattr('state', 'eq', 'on')
+          | list
+          | count
+        }}
+      summary_message: >
+        {% set available = states.update | selectattr('state', 'eq', 'on') | list %}
+        {% set ns = namespace(priority=[], other=[]) %}
+        {% for item in available %}
+          {% if item.entity_id in priority_entities %}
+            {% set ns.priority = ns.priority + [item.name] %}
+          {% else %}
+            {% set ns.other = ns.other + [item.name] %}
+          {% endif %}
+        {% endfor %}
+        {% if ns.priority | count > 0 %}
+        🚨 Priority:
+        {% for name in ns.priority %}
+        • {{ name }}
+        {% endfor %}
+        {% endif %}
+        {% if ns.other | count > 0 %}
+        ℹ️ Other updates:
+        {% for name in ns.other %}
+        • {{ name }}
+        {% endfor %}
+        {% endif %}
+        Open Home Assistant to review before installing.
+
+  - repeat:
+      for_each: "{{ notify_targets }}"
+      sequence:
+        - device_id: "{{ repeat.item }}"
+          domain: mobile_app
+          type: notify
+          title: "🔔 {{ available_count }} update{{ '' if available_count | int == 1 else 's' }} available"
+          message: "{{ summary_message }}"
+          data:
+            url: "/config/updates"
+            tag: "{{ notification_tag_value }}"
+            group: "updates_available"
+
+mode: single
+max_exceeded: silent

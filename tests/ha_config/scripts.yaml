@@ -1,0 +1,25 @@
+ci_quran_toggle:
+  alias: "CI - Quran Safe Toggle"
+  use_blueprint:
+    path: ThamerLab/quran/music_assistant_quran_toggle.yaml
+    input:
+      quran_player: media_player.test_music_assistant
+      quran_uri: "library://track/1"
+      media_type: track
+      notify_devices: []
+
+ci_manual_irrigation:
+  alias: "CI - Manual Irrigation"
+  use_blueprint:
+    path: ThamerLab/irrigation/manual_irrigation_safe_run.yaml
+    input:
+      irrigation_switches:
+        - switch.test_irrigation_left
+        - switch.test_irrigation_right
+      flow_sensors:
+        - sensor.test_flow_left
+        - sensor.test_flow_right
+      enable_no_flow_protection: true
+      block_if_already_on: true
+      startup_verify_seconds: 10
+      notify_devices: []

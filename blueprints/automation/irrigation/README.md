@@ -1,85 +1,47 @@
-# 🌱 Smart Irrigation Blueprint
+# 💧 Irrigation Blueprints
 
 <p align="center">
-  <img src="../../../assets/irrigation.svg" alt="ThamerLab Smart Irrigation Blueprint" width="100%">
+  <img src="../../../assets/irrigation.svg" alt="Smart Irrigation" width="49%">
+  <img src="../../../assets/water-safety.svg" alt="Water Safety Watchdog" width="49%">
 </p>
 
-Blueprint عام للسقاية في Home Assistant يجمع الجدولة، مراقبة التدفق، الحماية من انقطاع الماء، حساب استهلاك تقريبي، والتنبيهات.
+يوجد في هذا القسم Blueprintان منفصلان لأن **تشغيل السقاية** و**مراقبة التشغيل الطويل** وظيفتان مختلفتان.
 
-## أهم المزايا
+## 1. 🌱 Smart Irrigation
 
-- 🌅 تشغيل عند **الشروق والغروب**.
-- 🕒 وقت مخصص مرة يوميًا.
-- 🔁 تكرار كل عدد محدد من الساعات.
-- 🚿 دعم أكثر من صمام/سويتش في نفس الدورة.
-- 🌊 قراءة Flow Sensors بعد دقيقة من بدء السقاية.
-- 🚨 إيقاف تلقائي إذا لم يوجد تدفق ماء.
-- 🛑 اكتشاف الإيقاف اليدوي قبل نهاية المدة.
-- 📱 إرسال إشعارات إلى أكثر من جهاز Home Assistant Companion.
-- 💧 تقدير الاستهلاك باللتر و m³ عند استخدام حساسات بوحدة m³/h.
+الملف:
+`smart_irrigation.yaml`
 
-## المدخلات
+المهام:
 
-| Input | الوصف | ملاحظات |
-|---|---|---|
-| **Irrigation Valves** | صمام أو أكثر من نوع `switch` | مطلوب |
-| **Irrigation Duration** | مدة السقاية بالدقائق | 1–120 دقيقة |
-| **Schedule Mode** | Sun / Custom / Repeat | اختر أسلوبًا واحدًا |
-| **Custom Time** | وقت التشغيل اليومي | يستخدم فقط مع Custom |
-| **Repeat Every X Hours** | عدد الساعات بين الدورات | يستخدم فقط مع Repeat |
-| **Flow Sensors** | حساس أو أكثر للتدفق | اختياري، ويفضل m³/h |
-| **Stop If No Flow Detected** | حماية من عدم وجود ماء | تعمل عند وجود Flow Sensors |
-| **Notification Devices** | أجهزة mobile_app | اختياري |
-| **Enable Notifications** | تشغيل/إيقاف التنبيهات | افتراضيًا مفعلة |
+- Sunrise / Sunset.
+- Custom time.
+- Fixed clock interval.
+- منع بدء دورة فوق تشغيل موجود.
+- تحقق من ON.
+- فحص كل Flow Sensor بعد دقيقة.
+- No-Flow protection.
+- اكتشاف إطفاء أي صمام مبكرًا.
+- إيقاف نهائي + تحقق OFF.
+- تقدير استهلاك اختياري.
 
-## كيف يعمل؟
+[📖 الشرح التفصيلي خطوة بخطوة](./SMART_IRRIGATION.md)
 
-1. ينتظر Trigger مناسب لطريقة الجدولة المختارة.
-2. يشغّل جميع الصمامات المحددة.
-3. بعد دقيقة يقرأ حساسات التدفق ويجمعها.
-4. إذا كانت حماية No-Flow مفعلة والتدفق = 0، يوقف الصمامات فورًا ويرسل تنبيه خطأ.
-5. يراقب الصمامات خلال مدة السقاية لاكتشاف الإيقاف اليدوي.
-6. عند اكتمال الوقت يطفئ الصمامات.
-7. يحسب الاستهلاك التقديري:
+## 2. 🚨 Long-running Water Safety Watchdog
 
-```text
-Estimated m³ = Flow (m³/h) × Duration (hours)
-Estimated liters = Estimated m³ × 1000
-```
+الملف:
+`long_running_water_safety.yaml`
 
-> [!NOTE]
-> الحساب **تقديري** لأنه يعتمد على عينة التدفق المقروءة بعد الدقيقة الأولى، وليس تكامل التدفق لحظة بلحظة.
+المهام:
 
-## Import
+- مراقبة مدة ON.
+- Critical Notification.
+- Stop all / Keep running.
+- تحقق OFF بعد Stop.
+- Watchdog كل 5 دقائق + Startup fallback.
+- Snooze بعد Keep.
 
-```text
-https://raw.githubusercontent.com/ThamerLab/Home_Assistant/main/blueprints/automation/irrigation/smart_irrigation.yaml
-```
+[📖 الشرح التفصيلي خطوة بخطوة](./WATER_SAFETY.md)
 
-[![Open your Home Assistant instance and import this blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FThamerLab%2FHome_Assistant%2Fmain%2Fblueprints%2Fautomation%2Firrigation%2Fsmart_irrigation.yaml)
-
-## متطلبات موصى بها
-
-- Home Assistant حديث.
-- صمامات مياه تظهر كـ `switch`.
-- Flow Sensors بوحدة `m³/h` للاستفادة من الحماية والحساب.
-- Home Assistant Companion App للتنبيهات.
-
-## ملاحظات أمان
-
-- اختبر الـBlueprint أول مرة وأنت قريب من الصمامات.
-- لا تعتمد على تقدير التدفق كعداد فوترة.
-- تأكد أن الصمامات تستجيب فعليًا لأوامر الإيقاف.
-
-
----
-
-## 🚨 Companion Safety Blueprint
-
-إذا تبي حماية مستقلة عن جدول السقاية، استخدم:
-
-**Long-running Water Safety Watchdog**
-
-يرسل Critical Notification إذا بقي صمام ماء شغالًا مدة طويلة، ويوفر Stop/Keep مع تحقق من الإيقاف.
-
-[📖 اقرأ شرح Water Safety](./WATER_SAFETY.md)
+> [!IMPORTANT]
+> للأجهزة المائية الحقيقية يفضّل استخدام الاثنين معًا: الأول للتشغيل الطبيعي، والثاني كطبقة أمان مستقلة.

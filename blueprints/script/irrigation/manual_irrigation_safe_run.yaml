@@ -1,0 +1,351 @@
+blueprint:
+  name: "💧 Manual Irrigation — Safe Timed Run"
+  author: "ThamerLab"
+  description: >
+    Reusable manual irrigation script for one or more switch-based valves.
+    The run duration is requested each time the script is started. The script
+    can block if a valve is already ON, verifies startup, optionally checks each
+    selected flow sensor after one minute, stops remaining valves if any selected
+    valve turns OFF early, sends a final OFF command, and verifies reported
+    shutdown. Pair it with the Long Running Water Safety Watchdog.
+  domain: script
+  source_url: https://github.com/ThamerLab/Home_Assistant/blob/main/blueprints/script/irrigation/manual_irrigation_safe_run.yaml
+  homeassistant:
+    min_version: "2026.9.4"
+
+  input:
+    irrigation_switches:
+      name: "🚿 Irrigation Valves"
+      selector:
+        entity:
+          filter:
+            domain: switch
+          multiple: true
+
+    flow_sensors:
+      name: "🌊 Flow Sensors"
+      description: >
+        Optional sensors checked after one minute. Expected unit: m³/h.
+        When no-flow protection is enabled, every selected flow sensor must be
+        available and greater than zero.
+      default: []
+      selector:
+        entity:
+          filter:
+            domain: sensor
+          multiple: true
+
+    enable_no_flow_protection:
+      name: "🚨 Stop If Any Selected Flow Sensor Has No Flow"
+      default: true
+      selector:
+        boolean:
+
+    block_if_already_on:
+      name: "🛑 Do Not Start If Any Valve Is Already ON"
+      default: true
+      selector:
+        boolean:
+
+    startup_verify_seconds:
+      name: "✅ Valve Startup Verification"
+      default: 10
+      selector:
+        number:
+          min: 3
+          max: 30
+          step: 1
+          unit_of_measurement: seconds
+          mode: slider
+
+    notify_devices:
+      name: "📱 Notification Devices"
+      description: Optional Home Assistant Companion App devices.
+      default: []
+      selector:
+        device:
+          filter:
+            integration: mobile_app
+          multiple: true
+
+fields:
+  duration:
+    name: "مدة التشغيل"
+    description: "مدة تشغيل السقاية اليدوية بالدقائق."
+    required: true
+    default: 10
+    selector:
+      number:
+        min: 1
+        max: 120
+        step: 1
+        unit_of_measurement: minutes
+        mode: slider
+
+variables:
+  switches: !input irrigation_switches
+  flows: !input flow_sensors
+  no_flow_protection: !input enable_no_flow_protection
+  block_existing: !input block_if_already_on
+  verify_seconds: !input startup_verify_seconds
+  notify_targets: !input notify_devices
+
+mode: single
+max_exceeded: silent
+
+sequence:
+  - variables:
+      run_minutes: "{{ duration | default(10) | int(10) }}"
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: >
+              {{
+                block_existing
+                and
+                (
+                  expand(switches)
+                  | selectattr('state', 'eq', 'on')
+                  | list
+                  | count
+                ) > 0
+              }}
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "⚠️ Manual irrigation not started"
+              message: >
+                One or more selected irrigation valves were already ON.
+                This script did not take control of them.
+          - repeat:
+              for_each: "{{ notify_targets }}"
+              sequence:
+                - device_id: "{{ repeat.item }}"
+                  domain: mobile_app
+                  type: notify
+                  title: "⚠️ Manual irrigation not started"
+                  message: "A selected valve was already ON, so the run was skipped."
+          - stop: "A selected irrigation valve was already ON"
+
+  - action: switch.turn_on
+    target:
+      entity_id: !input irrigation_switches
+
+  - wait_template: >
+      {{
+        expand(switches)
+        | rejectattr('state', 'eq', 'on')
+        | list
+        | count == 0
+      }}
+    timeout:
+      seconds: "{{ verify_seconds | int }}"
+    continue_on_timeout: true
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ not wait.completed }}"
+        sequence:
+          - action: switch.turn_off
+            continue_on_error: true
+            target:
+              entity_id: !input irrigation_switches
+          - action: persistent_notification.create
+            data:
+              title: "🚨 Manual irrigation startup failed"
+              message: >
+                Not all selected valves reported ON within {{ verify_seconds }}
+                seconds. All selected valves were sent an OFF command.
+          - repeat:
+              for_each: "{{ notify_targets }}"
+              sequence:
+                - device_id: "{{ repeat.item }}"
+                  domain: mobile_app
+                  type: notify
+                  title: "🚨 Manual irrigation startup failed"
+                  message: "Not all selected valves reported ON. Irrigation was stopped."
+          - stop: "Valve startup verification failed"
+
+  - repeat:
+      for_each: "{{ notify_targets }}"
+      sequence:
+        - device_id: "{{ repeat.item }}"
+          domain: mobile_app
+          type: notify
+          title: "💧 Manual irrigation started"
+          message: "Scheduled manual runtime: {{ run_minutes }} minutes."
+
+  - delay: "00:01:00"
+
+  - variables:
+      all_still_on: >
+        {{
+          expand(switches)
+          | rejectattr('state', 'eq', 'on')
+          | list
+          | count == 0
+        }}
+      total_flow: >
+        {% set ns = namespace(total=0) %}
+        {% for flow_entity in flows %}
+          {% set ns.total = ns.total + (states(flow_entity) | float(0)) %}
+        {% endfor %}
+        {{ ns.total | round(3) }}
+      bad_flow_count: >
+        {% set ns = namespace(count=0) %}
+        {% for flow_entity in flows %}
+          {% if states(flow_entity) | float(-1) <= 0 %}
+            {% set ns.count = ns.count + 1 %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.count }}
+      remaining_minutes: "{{ [run_minutes | float(0) - 1, 0] | max }}"
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ not all_still_on }}"
+        sequence:
+          - action: switch.turn_off
+            continue_on_error: true
+            target:
+              entity_id: !input irrigation_switches
+          - repeat:
+              for_each: "{{ notify_targets }}"
+              sequence:
+                - device_id: "{{ repeat.item }}"
+                  domain: mobile_app
+                  type: notify
+                  title: "🛑 Manual irrigation stopped early"
+                  message: >
+                    A selected valve turned OFF during the first minute.
+                    All remaining selected valves were stopped.
+          - stop: "A selected valve turned OFF during the first minute"
+
+      - conditions:
+          - condition: template
+            value_template: >
+              {{
+                no_flow_protection
+                and (flows | count > 0)
+                and (bad_flow_count | int(0) > 0)
+              }}
+        sequence:
+          - action: switch.turn_off
+            continue_on_error: true
+            target:
+              entity_id: !input irrigation_switches
+          - action: persistent_notification.create
+            data:
+              title: "🚨 Manual irrigation no-flow protection"
+              message: >
+                At least one selected flow sensor was unavailable, zero, or
+                below zero after one minute. Irrigation was stopped.
+          - repeat:
+              for_each: "{{ notify_targets }}"
+              sequence:
+                - device_id: "{{ repeat.item }}"
+                  domain: mobile_app
+                  type: notify
+                  title: "🚨 Manual irrigation no-flow protection"
+                  message: "A selected flow sensor did not confirm positive flow. Irrigation was stopped."
+          - stop: "No-flow protection stopped irrigation"
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ remaining_minutes | float(0) > 0 }}"
+        sequence:
+          - wait_for_trigger:
+              - trigger: state
+                entity_id: !input irrigation_switches
+                from: "on"
+                to: "off"
+                id: valve_turned_off
+            timeout:
+              minutes: "{{ remaining_minutes | float(0) }}"
+            continue_on_timeout: true
+
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: >
+                      {{
+                        wait.completed
+                        and wait.trigger is not none
+                        and wait.trigger.id == 'valve_turned_off'
+                      }}
+                sequence:
+                  - action: switch.turn_off
+                    continue_on_error: true
+                    target:
+                      entity_id: !input irrigation_switches
+                  - repeat:
+                      for_each: "{{ notify_targets }}"
+                      sequence:
+                        - device_id: "{{ repeat.item }}"
+                          domain: mobile_app
+                          type: notify
+                          title: "🛑 Manual irrigation stopped manually"
+                          message: >
+                            A selected valve turned OFF before the requested
+                            duration ended. All remaining selected valves were stopped.
+                  - stop: "Manual or early valve shutdown detected"
+
+  - action: switch.turn_off
+    continue_on_error: true
+    target:
+      entity_id: !input irrigation_switches
+
+  - wait_template: >
+      {{
+        expand(switches)
+        | rejectattr('state', 'eq', 'off')
+        | list
+        | count == 0
+      }}
+    timeout: "00:00:15"
+    continue_on_timeout: true
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ not wait.completed }}"
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "🚨 Manual irrigation shutdown not confirmed"
+              message: >
+                The OFF command was sent, but one or more selected valves did
+                not report OFF within 15 seconds. Check the irrigation system.
+          - repeat:
+              for_each: "{{ notify_targets }}"
+              sequence:
+                - device_id: "{{ repeat.item }}"
+                  domain: mobile_app
+                  type: notify
+                  title: "🚨 Manual irrigation shutdown not confirmed"
+                  message: "One or more selected valves are not confirmed OFF."
+          - stop: "Valve shutdown verification failed"
+
+  - variables:
+      used_m3: "{{ ((total_flow | float(0)) * ((run_minutes | float(0)) / 60)) | round(3) }}"
+      used_liters: "{{ (((total_flow | float(0)) * ((run_minutes | float(0)) / 60)) * 1000) | round(0) }}"
+
+  - repeat:
+      for_each: "{{ notify_targets }}"
+      sequence:
+        - device_id: "{{ repeat.item }}"
+          domain: mobile_app
+          type: notify
+          title: "✅ Manual irrigation completed"
+          message: >
+            Runtime: {{ run_minutes }} minutes.
+            {% if flows | count > 0 %}
+            Flow sample after one minute: {{ total_flow }} m³/h.
+            Estimated usage: {{ used_liters }} L ({{ used_m3 }} m³).
+            {% else %}
+            No flow sensors were selected, so water usage was not estimated.
+            {% endif %}

@@ -1,43 +1,31 @@
 blueprint:
   name: "🌱 ThamerLab Smart Irrigation"
+  author: "ThamerLab"
   description: >
-    Smart irrigation system for Home Assistant.
-
-    Features:
-    🌅 Sunrise & sunset irrigation
-    🕒 Custom daily schedule
-    🔁 Repeat every X hours
-    💧 Water usage estimation from live flow sensors
-    🌊 Flow monitoring
-    🚨 No-flow protection
-    📱 Mobile notifications
-    🛑 Manual stop detection
-
-    Water usage calculation:
-    total usage = total flow after one minute × irrigation duration in hours
-
+    Scheduled irrigation for one or more switch-based valves. Supports sunrise
+    and sunset, a custom daily time, or fixed clock intervals that divide 24
+    hours evenly. Verifies valve startup, optionally checks flow after one
+    minute, stops on no-flow, detects an early/manual valve shutdown, verifies
+    final OFF state, and can send Companion App notifications.
   domain: automation
   source_url: https://github.com/ThamerLab/Home_Assistant/blob/main/blueprints/automation/irrigation/smart_irrigation.yaml
+  homeassistant:
+    min_version: "2026.9.4"
 
   input:
     irrigation_switches:
       name: "🚿 Irrigation Valves"
-      description: >
-        Select one or more irrigation valves or switches.
+      description: Select one or more valve/switch entities controlled by this automation.
       selector:
         entity:
-          domain: switch
+          filter:
+            domain: switch
           multiple: true
 
     irrigation_duration:
       name: "⏱️ Irrigation Duration"
-      description: >
-        How long irrigation should run.
-
-        Recommended:
-        Grass: 5–10 minutes
-        Trees: 10–20 minutes
-      default: 15
+      description: Total scheduled runtime in minutes.
+      default: 5
       selector:
         number:
           min: 1
@@ -48,7 +36,7 @@ blueprint:
 
     schedule_mode:
       name: "🗓️ Schedule Mode"
-      description: "Choose how irrigation should start."
+      description: Select exactly one schedule mode.
       default: sun
       selector:
         select:
@@ -57,73 +45,103 @@ blueprint:
               value: sun
             - label: "🕒 Custom Time Once Per Day"
               value: custom
-            - label: "🔁 Repeat Every X Hours"
+            - label: "🔁 Fixed Clock Interval"
               value: repeat
 
     custom_time:
       name: "🕒 Custom Time"
-      description: >
-        Used only when schedule mode is Custom Time Once Per Day.
+      description: Used only when Schedule Mode is Custom Time Once Per Day.
       default: "06:00:00"
       selector:
         time:
 
     repeat_every_hours:
-      name: "🔁 Repeat Every X Hours"
+      name: "🔁 Fixed Clock Interval"
       description: >
-        Used only when schedule mode is Repeat Every X Hours.
-      default: 6
+        Used only in Repeat mode. Values are restricted to divisors of 24 so
+        the interval remains consistent across midnight. The schedule is anchored
+        to local midnight (for example, every 6 hours runs at 00:00, 06:00,
+        12:00 and 18:00).
+      default: "6"
       selector:
-        number:
-          min: 1
-          max: 24
-          step: 1
-          unit_of_measurement: hours
-          mode: slider
+        select:
+          options:
+            - label: "Every 1 hour"
+              value: "1"
+            - label: "Every 2 hours"
+              value: "2"
+            - label: "Every 3 hours"
+              value: "3"
+            - label: "Every 4 hours"
+              value: "4"
+            - label: "Every 6 hours"
+              value: "6"
+            - label: "Every 8 hours"
+              value: "8"
+            - label: "Every 12 hours"
+              value: "12"
+            - label: "Every 24 hours"
+              value: "24"
 
     flow_sensors:
       name: "🌊 Flow Sensors"
       description: >
-        Optional flow sensors used for water usage estimation and flow monitoring.
-
-        Recommended unit: m³/h.
-        The blueprint reads the selected sensors after one minute of irrigation,
-        adds them together, then multiplies the total flow by the irrigation duration.
+        Optional flow sensors used for no-flow protection and estimated water
+        usage. Expected unit: m³/h. All selected sensor values are added together.
       default: []
       selector:
         entity:
-          domain: sensor
+          filter:
+            domain: sensor
           multiple: true
 
     enable_no_flow_protection:
       name: "🚨 Stop If No Flow Detected"
       description: >
-        If enabled and flow sensors are selected, irrigation stops automatically
-        when no water flow is detected after one minute.
+        If enabled and at least one flow sensor is selected, every selected
+        sensor must report a positive numeric value after the one-minute sample.
+        If any selected sensor is unavailable, non-numeric, zero, or below zero,
+        all selected valves are stopped.
       default: true
       selector:
         boolean:
+
+    block_if_already_on:
+      name: "🛑 Do Not Start If Any Valve Is Already ON"
+      description: >
+        Recommended. Prevents the scheduled run from taking over a valve that
+        was already running manually or from another automation.
+      default: true
+      selector:
+        boolean:
+
+    startup_verify_seconds:
+      name: "✅ Valve Startup Verification"
+      description: Seconds allowed for all selected valves to report ON after the start command.
+      default: 10
+      selector:
+        number:
+          min: 3
+          max: 30
+          step: 1
+          unit_of_measurement: seconds
+          mode: slider
 
     notify_devices:
       name: "📱 Notification Devices"
-      description: >
-        Select mobile app devices that should receive irrigation notifications.
+      description: Optional Home Assistant Companion App devices.
       default: []
       selector:
         device:
-          integration: mobile_app
+          filter:
+            integration: mobile_app
           multiple: true
 
     enable_notifications:
-      name: "🔔 Enable Notifications"
-      description: >
-        Send start, completion, error, and manual stop notifications.
+      name: "🔔 Enable Mobile Notifications"
       default: true
       selector:
         boolean:
-
-mode: restart
-max_exceeded: silent
 
 variables:
   switches: !input irrigation_switches
@@ -132,6 +150,8 @@ variables:
   repeat_hours: !input repeat_every_hours
   flows: !input flow_sensors
   no_flow_protection: !input enable_no_flow_protection
+  block_existing: !input block_if_already_on
+  verify_seconds: !input startup_verify_seconds
   notifications_enabled: !input enable_notifications
   notify_targets: !input notify_devices
 
@@ -160,7 +180,10 @@ conditions:
       {% elif mode_selected == 'custom' %}
         {{ trigger.id == 'custom_time' }}
       {% elif mode_selected == 'repeat' %}
-        {{ trigger.id == 'repeat_check' and (now().hour | int) % (repeat_hours | int) == 0 }}
+        {{
+          trigger.id == 'repeat_check'
+          and (now().hour | int) % (repeat_hours | int) == 0
+        }}
       {% else %}
         false
       {% endif %}
@@ -169,18 +192,95 @@ actions:
   - variables:
       run_label: >
         {% if trigger.id == 'sunrise' %}
-          🌅 sunrise
+          sunrise
         {% elif trigger.id == 'sunset' %}
-          🌇 sunset
+          sunset
         {% elif trigger.id == 'custom_time' %}
-          🕒 custom time
+          custom time
         {% else %}
-          🔁 repeat schedule
+          repeat schedule
         {% endif %}
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: >
+              {{
+                block_existing
+                and
+                (
+                  expand(switches)
+                  | selectattr('state', 'eq', 'on')
+                  | list
+                  | count
+                ) > 0
+              }}
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "⚠️ Irrigation start skipped"
+              message: >
+                One or more selected irrigation valves were already ON before
+                this scheduled run. The automation did not take control of them.
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ notifications_enabled and (notify_targets | count > 0) }}"
+                sequence:
+                  - repeat:
+                      for_each: "{{ notify_targets }}"
+                      sequence:
+                        - device_id: "{{ repeat.item }}"
+                          domain: mobile_app
+                          type: notify
+                          title: "⚠️ Irrigation start skipped"
+                          message: "A selected valve was already ON, so the scheduled run was skipped."
+          - stop: "A selected irrigation valve was already ON"
 
   - action: switch.turn_on
     target:
       entity_id: !input irrigation_switches
+
+  - wait_template: >
+      {{
+        expand(switches)
+        | rejectattr('state', 'eq', 'on')
+        | list
+        | count == 0
+      }}
+    timeout:
+      seconds: "{{ verify_seconds | int }}"
+    continue_on_timeout: true
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ not wait.completed }}"
+        sequence:
+          - action: switch.turn_off
+            continue_on_error: true
+            target:
+              entity_id: !input irrigation_switches
+          - action: persistent_notification.create
+            data:
+              title: "🚨 Irrigation valve start failure"
+              message: >
+                Not all selected valves reported ON within {{ verify_seconds }} seconds.
+                All selected valves were sent an OFF command as a precaution.
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ notifications_enabled and (notify_targets | count > 0) }}"
+                sequence:
+                  - repeat:
+                      for_each: "{{ notify_targets }}"
+                      sequence:
+                        - device_id: "{{ repeat.item }}"
+                          domain: mobile_app
+                          type: notify
+                          title: "🚨 Irrigation valve start failure"
+                          message: "Not all selected valves reported ON. Irrigation was stopped."
+          - stop: "Valve startup verification failed"
 
   - choose:
       - conditions:
@@ -193,38 +293,47 @@ actions:
                 - device_id: "{{ repeat.item }}"
                   domain: mobile_app
                   type: notify
-                  title: "💧 Irrigation Started"
+                  title: "💧 Irrigation started"
                   message: >
-                    Irrigation started using {{ run_label }}.
-
-                    ⏱️ Duration:
-                    {{ duration }} minutes
+                    {{ run_label }} irrigation started.
+                    Scheduled duration: {{ duration }} minutes.
 
   - delay:
       minutes: 1
 
   - variables:
+      all_still_on: >
+        {{
+          expand(switches)
+          | rejectattr('state', 'eq', 'on')
+          | list
+          | count == 0
+        }}
       total_flow: >
         {% set ns = namespace(total=0) %}
-        {% for f in flows %}
-          {% set ns.total = ns.total + (states(f) | float(0)) %}
+        {% for flow_entity in flows %}
+          {% set ns.total = ns.total + (states(flow_entity) | float(0)) %}
         {% endfor %}
         {{ ns.total | round(3) }}
+      bad_flow_count: >
+        {% set ns = namespace(count=0) %}
+        {% for flow_entity in flows %}
+          {% if states(flow_entity) | float(-1) <= 0 %}
+            {% set ns.count = ns.count + 1 %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.count }}
+      remaining_minutes: "{{ [duration | float(0) - 1, 0] | max }}"
 
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ no_flow_protection and (flows | count > 0) and (total_flow | float(0) <= 0) }}"
+            value_template: "{{ not all_still_on }}"
         sequence:
           - action: switch.turn_off
+            continue_on_error: true
             target:
               entity_id: !input irrigation_switches
-
-          - action: persistent_notification.create
-            data:
-              title: "🚨 Irrigation Error"
-              message: "No water flow detected. Irrigation stopped automatically."
-
           - choose:
               - conditions:
                   - condition: template
@@ -236,28 +345,118 @@ actions:
                         - device_id: "{{ repeat.item }}"
                           domain: mobile_app
                           type: notify
-                          title: "🚨 Irrigation Error"
+                          title: "🛑 Irrigation stopped early"
                           message: >
-                            No water flow detected.
+                            One or more selected valves turned OFF during the
+                            first minute. The remaining selected valves were stopped.
+          - stop: "Valve turned OFF during the first minute"
 
-                            Irrigation stopped automatically to prevent water waste.
-
+      - conditions:
+          - condition: template
+            value_template: >
+              {{
+                no_flow_protection
+                and (flows | count > 0)
+                and (bad_flow_count | int(0) > 0)
+              }}
+        sequence:
+          - action: switch.turn_off
+            continue_on_error: true
+            target:
+              entity_id: !input irrigation_switches
+          - action: persistent_notification.create
+            data:
+              title: "🚨 Irrigation no-flow protection"
+              message: >
+                At least one selected flow sensor was unavailable, zero, or
+                below zero after one minute. Irrigation was stopped.
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ notifications_enabled and (notify_targets | count > 0) }}"
+                sequence:
+                  - repeat:
+                      for_each: "{{ notify_targets }}"
+                      sequence:
+                        - device_id: "{{ repeat.item }}"
+                          domain: mobile_app
+                          type: notify
+                          title: "🚨 Irrigation no-flow protection"
+                          message: "At least one selected flow sensor did not confirm positive flow. Irrigation was stopped."
           - stop: "No flow detected"
 
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ remaining_minutes | float(0) > 0 }}"
+        sequence:
+          - wait_for_trigger:
+              - trigger: state
+                entity_id: !input irrigation_switches
+                from: "on"
+                to: "off"
+                id: valve_turned_off
+            timeout:
+              minutes: "{{ remaining_minutes | float(0) }}"
+            continue_on_timeout: true
+
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: >
+                      {{
+                        wait.completed
+                        and wait.trigger is not none
+                        and wait.trigger.id == 'valve_turned_off'
+                      }}
+                sequence:
+                  - action: switch.turn_off
+                    continue_on_error: true
+                    target:
+                      entity_id: !input irrigation_switches
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ notifications_enabled and (notify_targets | count > 0) }}"
+                        sequence:
+                          - repeat:
+                              for_each: "{{ notify_targets }}"
+                              sequence:
+                                - device_id: "{{ repeat.item }}"
+                                  domain: mobile_app
+                                  type: notify
+                                  title: "🛑 Irrigation stopped manually"
+                                  message: >
+                                    A selected valve turned OFF before the scheduled
+                                    duration ended. All remaining selected valves were stopped.
+                  - stop: "Manual or early valve shutdown detected"
+
+  - action: switch.turn_off
+    continue_on_error: true
+    target:
+      entity_id: !input irrigation_switches
+
   - wait_template: >
-      {% set off_count = expand(switches) | selectattr('state', 'eq', 'off') | list | count %}
-      {{ off_count == (switches | count) }}
-    timeout:
-      minutes: "{{ [duration - 1, 0] | max }}"
+      {{
+        expand(switches)
+        | rejectattr('state', 'eq', 'off')
+        | list
+        | count == 0
+      }}
+    timeout: "00:00:15"
     continue_on_timeout: true
 
   - choose:
       - conditions:
           - condition: template
-            value_template: >
-              {% set off_count = expand(switches) | selectattr('state', 'eq', 'off') | list | count %}
-              {{ off_count == (switches | count) }}
+            value_template: "{{ not wait.completed }}"
         sequence:
+          - action: persistent_notification.create
+            data:
+              title: "🚨 Irrigation shutdown not confirmed"
+              message: >
+                The OFF command was sent, but one or more selected valves did
+                not report OFF within 15 seconds. Check the irrigation system.
           - choose:
               - conditions:
                   - condition: template
@@ -269,15 +468,9 @@ actions:
                         - device_id: "{{ repeat.item }}"
                           domain: mobile_app
                           type: notify
-                          title: "🛑 Irrigation Stopped Manually"
-                          message: >
-                            Irrigation was stopped before the scheduled duration ended.
-
-          - stop: "Manual stop detected"
-
-  - action: switch.turn_off
-    target:
-      entity_id: !input irrigation_switches
+                          title: "🚨 Irrigation shutdown not confirmed"
+                          message: "One or more selected valves are not confirmed OFF."
+          - stop: "Valve shutdown verification failed"
 
   - variables:
       used_m3: "{{ ((total_flow | float(0)) * ((duration | float(0)) / 60)) | round(3) }}"
@@ -294,16 +487,16 @@ actions:
                 - device_id: "{{ repeat.item }}"
                   domain: mobile_app
                   type: notify
-                  title: "✅ Irrigation Completed"
+                  title: "✅ Irrigation completed"
                   message: >
                     Irrigation completed successfully.
+                    Duration: {{ duration }} minutes.
+                    {% if flows | count > 0 %}
+                    Flow sample after one minute: {{ total_flow }} m³/h.
+                    Estimated usage: {{ used_liters }} L ({{ used_m3 }} m³).
+                    {% else %}
+                    No flow sensors were selected, so water usage was not estimated.
+                    {% endif %}
 
-                    💦 Estimated Water Usage:
-                    {{ used_liters }} liters
-                    ({{ used_m3 }} m³)
-
-                    🧮 Calculation:
-                    {{ total_flow }} m³/h × {{ (duration | float(0) / 60) | round(2) }} h
-
-                    🌊 Flow Sample After 1 Minute:
-                    {{ total_flow }} m³/h
+mode: single
+max_exceeded: silent

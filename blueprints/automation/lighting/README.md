@@ -1,48 +1,37 @@
-# 🌙 Outdoor Lighting
+# 🌙 Outdoor Lighting Blueprints
 
 <p align="center">
-  <img src="../../../assets/outdoor-lighting.svg" alt="Outdoor Lighting Blueprints" width="100%">
+  <img src="../../../assets/outdoor-dusk-dawn.svg" alt="Dusk to Dawn" width="49%">
+  <img src="../../../assets/outdoor-alert.svg" alt="Abnormal State Alert" width="49%">
 </p>
 
-قسم الإنارة الخارجية يحتوي Blueprintين متكاملين.
+هذا القسم يفصل **تنفيذ الجدول** عن **التنبيه على الاستثناء**.
 
-## 1) Dusk to Dawn
+## 1. 🌙 Outdoor Lights — Dusk to Dawn
 
+الملف:
 `outside_lights_dusk_dawn.yaml`
 
-- تشغيل الإنارة عندما ينزل ارتفاع الشمس تحت الحد المختار.
-- إطفاؤها عندما يرتفع فوق نفس الحد.
-- Retry واحد إذا لم تستجب الإنارة.
-- لا يوجد Startup sync يجبر الإنارة على وضع معين، لذلك التحكم اليدوي يبقى له أولوية بعد حدث الشروق/الغروب.
+- ON عند عبور الشمس تحت Threshold.
+- OFF عند عبورها فوق Threshold.
+- تحقق من الحالة.
+- Retry واحد.
+- تنبيه إذا فشلت المحاولة الثانية.
+- بدون Startup force-sync احترامًا للتحكم اليدوي.
 
-### Import
+[📖 الشرح التفصيلي](./DUSK_TO_DAWN.md)
 
-```text
-https://raw.githubusercontent.com/ThamerLab/Home_Assistant/main/blueprints/automation/lighting/outside_lights_dusk_dawn.yaml
-```
+## 2. 💡 Outdoor Light — Abnormal State Alert
 
-[![Import Dusk to Dawn](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FThamerLab%2FHome_Assistant%2Fmain%2Fblueprints%2Fautomation%2Flighting%2Foutside_lights_dusk_dawn.yaml)
-
-## 2) Abnormal State Alert
-
+الملف:
 `outside_light_attention.yaml`
 
-يراقب الحالات غير المعتادة:
+- يراقب Night + OFF أو Day + ON.
+- ينتظر Mismatch Duration.
+- يرسل Fix / Keep.
+- يعيد فحص الظروف قبل تنفيذ Fix.
+- Action IDs فريدة لكل Run.
 
-- 🌙 الليل + اللمبة مطفأة لمدة محددة.
-- ☀️ النهار + اللمبة شغالة لمدة محددة.
+[📖 الشرح التفصيلي](./ABNORMAL_STATE_ALERT.md)
 
-ثم يرسل Actionable Notification فيه:
-
-- **Fix**: يرجع اللمبة للوضع المتوقع الآن.
-- **Keep**: يحترم اختيارك ولا يغير اللمبة.
-
-كما أن Action IDs فريدة لكل تشغيل باستخدام `context.id` لتجنب ضغط زر قديم على تشغيل جديد.
-
-### Import
-
-```text
-https://raw.githubusercontent.com/ThamerLab/Home_Assistant/main/blueprints/automation/lighting/outside_light_attention.yaml
-```
-
-[![Import Outdoor Light Alert](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FThamerLab%2FHome_Assistant%2Fmain%2Fblueprints%2Fautomation%2Flighting%2Foutside_light_attention.yaml)
+الاثنان مصممان للعمل معًا بدون Loop يجبرك على وضع معين بعد تغييرك اليدوي.
