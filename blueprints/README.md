@@ -1,13 +1,13 @@
 # 🧩 Blueprint Catalog
 
-كل Blueprint في هذا الفهرس يجب أن يملك:
+Every Blueprint in this catalog must include:
 
-- YAML مستقل.
-- صورة مخصصة.
-- شرح تفصيلي مستقل.
-- Import URL.
-- Test/limitations section.
-- تغطية في Validation workflow.
+- A standalone YAML file.
+- A dedicated image.
+- A dedicated detailed guide.
+- A direct import URL.
+- A testing and limitations section.
+- Coverage in the validation workflow.
 
 ## Automation Blueprints
 
@@ -41,4 +41,4 @@
 [✅ Validation Policy & Status](../docs/VALIDATION.md)
 
 > [!IMPORTANT]
-> لا يوجد Blueprint في هذا المستودع بدون شرح وصورة ضمن Validation map.
+> No Blueprint is accepted into this repository without both dedicated documentation and dedicated artwork.
