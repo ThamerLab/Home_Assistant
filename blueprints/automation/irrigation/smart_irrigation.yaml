@@ -98,8 +98,10 @@ blueprint:
     enable_no_flow_protection:
       name: "🚨 Stop If No Flow Detected"
       description: >
-        If enabled and at least one flow sensor is selected, all valves are
-        stopped when the combined flow is zero or below after the one-minute sample.
+        If enabled and at least one flow sensor is selected, every selected
+        sensor must report a positive numeric value after the one-minute sample.
+        If any selected sensor is unavailable, non-numeric, zero, or below zero,
+        all selected valves are stopped.
       default: true
       selector:
         boolean:
