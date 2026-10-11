@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="360" viewBox="0 0 900 360" role="img" aria-labelledby="title desc">
+  <title id="title">Zone Exit Notification Blueprint</title>
+  <desc id="desc">Illustration for Home Assistant person zone exit notifications.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#151B2B"/><stop offset=".55" stop-color="#27355A"/><stop offset="1" stop-color="#3D2A65"/></linearGradient>
+  </defs>
+  <rect width="900" height="360" rx="30" fill="url(#bg)"/>
+  <text x="54" y="68" fill="#C8CFFF" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700">HOME ASSISTANT BLUEPRINT</text>
+  <text x="54" y="120" fill="#FFF" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800">Zone Exit Notification</text>
+  <text x="54" y="160" fill="#E3E5F4" font-family="Arial, Helvetica, sans-serif" font-size="20">Person leaves a zone → notify your Home Assistant app</text>
+  <g transform="translate(55 205)">
+    <rect width="160" height="54" rx="27" fill="#8B5CF6" opacity=".18" stroke="#A78BFA" stroke-opacity=".7"/>
+    <text x="80" y="35" text-anchor="middle" fill="#F2ECFF" font-family="Arial" font-size="17" font-weight="700">Person</text>
+    <rect x="175" width="160" height="54" rx="27" fill="#41BDF5" opacity=".15" stroke="#41BDF5" stroke-opacity=".6"/>
+    <text x="255" y="35" text-anchor="middle" fill="#EAF8FF" font-family="Arial" font-size="17" font-weight="700">Zone</text>
+    <rect x="350" width="180" height="54" rx="27" fill="#10B981" opacity=".15" stroke="#10B981" stroke-opacity=".6"/>
+    <text x="440" y="35" text-anchor="middle" fill="#ECFFF8" font-family="Arial" font-size="17" font-weight="700">Notification</text>
+  </g>
+  <g transform="translate(700 72)">
+    <circle cx="78" cy="78" r="63" fill="none" stroke="#A78BFA" stroke-width="7" stroke-dasharray="12 11"/>
+    <path d="M78 33c-23 0-42 19-42 42 0 34 42 78 42 78s42-44 42-78c0-23-19-42-42-42Z" fill="#8B5CF6"/>
+    <circle cx="78" cy="75" r="15" fill="#FFF"/>
+    <path d="M143 168h-37l15-15m-15 15 15 15" fill="none" stroke="#41BDF5" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
