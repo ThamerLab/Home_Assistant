@@ -1,3 +1,8 @@
+# Mirrored from Home Assistant Core's built-in Zone Notification blueprint.
+# Copyright Home Assistant contributors.
+# Licensed under the Apache License 2.0.
+# Upstream: https://github.com/home-assistant/core/blob/dev/homeassistant/components/automation/blueprints/notify_leaving_zone.yaml
+
 blueprint:
   name: Zone Notification
   description: Send a notification to a device when a person leaves a specific zone.
