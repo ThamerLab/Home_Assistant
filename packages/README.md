@@ -1,21 +1,17 @@
-# Packages
+# Home Assistant Packages
 
-هذا المجلد مخصص لـ Home Assistant Packages.
+This folder is reserved for reusable Home Assistant package configurations.
 
-يفضل تقسيمها حسب النظام:
+Recommended organization:
 
-```text
-irrigation.yaml
-notifications.yaml
-security.yaml
-energy.yaml
-presence.yaml
-```
+- irrigation
+- lighting
+- presence
+- media
+- system
 
-كل Package يحتوي:
+Each package should document its purpose, required integrations, complete configuration, created helpers, automation behavior, restart considerations, installation steps, and testing steps.
 
-- sensors
-- helpers
-- automations
-- scripts
-- templates
+Do not include private entity identifiers, credentials, secrets, or home-specific network information.
+
+A package should not be described as production-ready until its actual configuration has been added, reviewed, and validated.
