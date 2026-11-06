@@ -246,51 +246,56 @@ def check_bathroom_safety(rel_path: str, data: dict, errors: list[str]) -> None:
         "occupancy_sensors",
         "lights_to_control",
         "fan_entities",
-        "light_ownership_helper",
-        "fan_ownership_helper",
         "auto_turn_on_lights",
         "auto_turn_on_fan",
         "light_on_delay",
         "fan_on_delay",
         "light_off_delay",
         "fan_off_delay",
-        "light_manual_on_behavior",
-        "fan_manual_on_behavior",
-        "light_manual_hold_max",
-        "fan_manual_hold_max",
+        "enable_vacant_light_safety",
+        "vacant_light_safety_timeout",
+        "enable_vacant_fan_safety",
+        "vacant_fan_safety_timeout",
         "startup_verify_seconds",
         "shutdown_verify_seconds",
         "startup_reconcile_delay",
     }
     missing = sorted(required_inputs - set(inputs))
     if missing:
-        errors.append(f"{rel_path}: missing bathroom safety inputs: {missing}")
+        errors.append(f"{rel_path}: missing bathroom inputs: {missing}")
 
-    if data.get("mode") != "restart":
+    if data.get("mode") != "parallel":
         errors.append(
-            f"{rel_path}: must use mode: restart so returning occupancy cancels pending OFF delays"
+            f"{rel_path}: must use mode: parallel so safety/startup runs do not cancel vacancy timers"
         )
 
     raw = (ROOT / rel_path).read_text(encoding="utf-8")
+
+    if "input_boolean" in raw:
+        errors.append(
+            f"{rel_path}: must be self-contained and must not require input_boolean helpers"
+        )
+
     required_fragments = [
-        "input_boolean.turn_on",
-        "input_boolean.turn_off",
-        "light_ownership_helper",
-        "fan_ownership_helper",
+        "trigger_variables",
+        "id: light_on_ready",
+        "id: fan_on_ready",
+        "id: light_off_ready",
+        "id: fan_off_ready",
+        "id: forgotten_light",
+        "id: forgotten_fan",
+        "id: startup_reconcile",
+        "light_on_delay",
+        "fan_on_delay",
+        "light_off_delay",
+        "fan_off_delay",
+        "vacant_light_safety_timeout",
+        "vacant_fan_safety_timeout",
         "wait_template",
         "persistent_notification.create",
         "homeassistant.turn_off",
         "light.turn_off",
-        "timed_hold",
-        "normal_vacancy",
-        "keep_on",
-        "light_manual_hold_max",
-        "fan_manual_hold_max",
-        "light_on_delay",
-        "fan_on_delay",
-        "startup_reconcile_delay",
-        "trigger_variables",
-        "startup_reconcile",
+        "mode: parallel",
     ]
     for fragment in required_fragments:
         if fragment not in raw:
