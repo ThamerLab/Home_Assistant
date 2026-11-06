@@ -203,6 +203,26 @@ This repository does not preserve a private copy of one home. Instead, it turns 
 </tr>
 </table>
 
+### 🚿 Bathroom Occupancy
+
+<p align="center">
+  <img src="./assets/bathroom-occupancy.svg" alt="Bathroom Occupancy Lights and Exhaust Fan" width="72%">
+</p>
+
+#### 🚿 Bathroom Occupancy — Lights & Exhaust Fan
+
+`bathroom_occupancy_lights_fan.yaml`
+
+- Supports one or more occupancy/motion sensors.
+- Uses separate light and fan off delays.
+- Supports fan entities and relay-controlled fan switches.
+- Uses persistent ownership helpers so pre-existing manual ON states are not turned OFF by the automation.
+- Returning occupancy cancels pending OFF delays.
+- Verifies ON and OFF state transitions.
+- Includes a 100-case deterministic ownership/vacancy logic test in CI.
+
+[📖 Detailed guide](./blueprints/automation/bathroom/README.md)
+
 ### 💧 Manual Irrigation Script
 
 <p align="center">
@@ -245,7 +265,7 @@ All relevant changes run:
 
 `.github/workflows/validate-blueprints.yml`
 
-The workflow checks YAML parsing, Blueprint metadata, `!input` integrity, wait timeouts, documentation/image coverage, SVG/XML validity, local links, privacy patterns, and Home Assistant `check_config`.
+The workflow checks YAML parsing, Blueprint metadata, `!input` integrity, wait timeouts, documentation/image coverage, SVG/XML validity, local links, privacy patterns, Home Assistant `check_config`, and 100 deterministic bathroom ownership/vacancy scenarios.
 
 See [docs/VALIDATION.md](./docs/VALIDATION.md).
 
