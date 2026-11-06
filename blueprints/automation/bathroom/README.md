@@ -66,6 +66,7 @@ The helper is ON only when this automation started that device class. If a devic
 | Maximum Manual Fan Hold | 3600 sec | Maximum vacant hold for manual fan |
 | Startup Verification | 10 sec | Time allowed for automation-started devices to confirm ON |
 | Shutdown Verification | 15 sec | Time allowed for controlled devices to confirm OFF |
+| Home Assistant Startup Reconcile Delay | 30 sec | Wait after HA startup before restarting vacancy/manual-hold protection |
 
 ## Manual ON Behaviors
 
@@ -103,11 +104,18 @@ Use this only when the user's manual ON decision must always remain authoritativ
 
 ## Step-by-Step Execution
 
-### Step 1 — Occupancy Starts
+### Step 1 — Aggregate Occupancy Starts
 
-Any selected occupancy sensor changing from OFF to ON starts the occupied branch.
+The Blueprint does not trigger independently on every sensor edge.
 
-Because the Blueprint uses `mode: restart`, a new occupancy event cancels any pending vacancy shutdown sequence.
+It uses an aggregate template:
+
+- **Occupied** becomes true when any selected sensor is ON.
+- **Vacant** becomes true only when every selected sensor is OFF.
+
+This is important with multiple sensors. One sensor turning OFF while another remains ON does not restart or cancel the active occupied sequence.
+
+Because the Blueprint uses `mode: restart`, a true transition back to aggregate Occupied cancels any pending vacancy shutdown sequence.
 
 ### Step 2 — Optional Light ON Delay
 
@@ -226,11 +234,19 @@ If the automation already owns a device and the user sends another ON command wh
 
 ## Restart Behavior
 
-Ownership helpers persist through Home Assistant restart.
+Ownership helpers persist through Home Assistant restart, but active Home Assistant delays do not.
 
-Active delay timers do not persist through restart. A new occupancy state transition is required to create a fresh run after restart.
+To recover safely, the Blueprint also has a Home Assistant startup trigger:
 
-For ventilation that must be guaranteed regardless of Home Assistant state, use independent hardware controls appropriate to the installation.
+1. Wait the configurable **Home Assistant Startup Reconcile Delay**.
+2. Check whether every occupancy sensor is OFF.
+3. If the bathroom is fully vacant, re-run the normal vacancy logic.
+4. Automation-owned devices resume their normal OFF-delay protection.
+5. Manually pre-started devices resume the selected Manual ON policy and maximum hold protection.
+
+If occupancy is active or uncertain after startup, no automatic shutdown occurs.
+
+For ventilation that must be guaranteed independently of Home Assistant, use device-side or electrical controls appropriate to the installation.
 
 ## 100-case Logic Test
 
@@ -238,7 +254,7 @@ The repository runs:
 
 `tests/test_bathroom_logic.py`
 
-The test executes exactly 100 deterministic configurations covering combinations of:
+The test executes exactly 100 deterministic timing configurations covering combinations of:
 
 - Manual light pre-state.
 - Manual fan pre-state.
