@@ -199,7 +199,7 @@ The exact URI check prevents unrelated content from being mistaken for the reque
 
 ### Step-by-Step Flow
 
-1. Occupancy starts.
+1. Aggregate occupancy becomes active when any selected sensor is ON; full vacancy occurs only when all selected sensors are OFF.
 2. Optional Light ON Delay and Fan ON Delay run independently.
 3. After each ON delay, occupancy must still be active before that device class may start.
 4. Automatic light and fan startup can each be disabled independently.
@@ -215,7 +215,8 @@ The exact URI check prevents unrelated content from being mistaken for the reque
 11. Timed Hold uses independently configurable maximum light/fan hold times.
 12. Before every OFF command, the Blueprint re-checks vacancy, ownership, and current device state.
 13. OFF commands are verified before automation ownership is released.
-14. Returning occupancy restarts the automation and cancels pending shutdown delays.
+14. Returning aggregate occupancy restarts the automation and cancels pending shutdown delays.
+15. After Home Assistant startup, a configurable reconcile delay restores vacancy/manual-hold protection when the bathroom is fully vacant.
 
 ### Timing Controls
 
@@ -229,6 +230,7 @@ Every important timing value is adjustable from the Blueprint UI:
 - Maximum Manual Fan Hold.
 - Startup Verification timeout.
 - Shutdown Verification timeout.
+- Home Assistant Startup Reconcile Delay.
 
 ### Manual ON Policy
 
