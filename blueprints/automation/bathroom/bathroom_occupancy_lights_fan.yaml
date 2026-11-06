@@ -2,11 +2,11 @@ blueprint:
   name: "🚿 Bathroom Occupancy — Lights & Exhaust Fan"
   author: "ThamerLab"
   description: >
-    Controls bathroom lights and an exhaust fan from one or more occupancy or
-    motion sensors while preserving pre-existing manual states. Two input_boolean
-    helpers record whether this automation owns the light and fan for the current
-    occupancy cycle. Lights and fan use independent off delays. Returning motion
-    restarts the pending off sequence without losing ownership.
+    Flexible bathroom occupancy automation for lights and an exhaust fan. It
+    supports independent ON delays, OFF delays, manual-ON behavior, maximum
+    manual hold times, startup/shutdown verification, and persistent ownership
+    helpers so the automation can distinguish devices it started from devices
+    that were already ON manually.
   domain: automation
   source_url: https://github.com/ThamerLab/Home_Assistant/blob/main/blueprints/automation/bathroom/bathroom_occupancy_lights_fan.yaml
   homeassistant:
@@ -17,8 +17,8 @@ blueprint:
       name: "🚶 Occupancy / Motion Sensors"
       description: >
         Select one or more binary sensors. The bathroom is considered occupied
-        when any selected sensor is ON, and vacant only when all selected sensors
-        are OFF.
+        when any selected sensor is ON and fully vacant only when every selected
+        sensor is OFF. Unknown or unavailable sensors prevent automatic shutdown.
       selector:
         entity:
           filter:
@@ -28,8 +28,9 @@ blueprint:
     lights_to_control:
       name: "💡 Bathroom Lights"
       description: >
-        Lights controlled by this automation. For the safest manual-override
-        behavior, use one logical light/group for the bathroom when possible.
+        Lights controlled by this automation. For the clearest manual-override
+        behavior, use one logical light/group when multiple fixtures should act
+        as one unit.
       selector:
         entity:
           filter:
@@ -39,8 +40,8 @@ blueprint:
     fan_entities:
       name: "🌀 Exhaust Fan"
       description: >
-        Exhaust-fan entities controlled by this automation. Both fan and switch
-        domains are supported so relay-controlled bathroom fans can be used.
+        Exhaust-fan targets. Both fan and switch domains are supported so
+        relay-controlled bathroom fans can be used.
       selector:
         entity:
           filter:
@@ -51,9 +52,8 @@ blueprint:
     light_ownership_helper:
       name: "🔐 Light Ownership Helper"
       description: >
-        Select a dedicated input_boolean used only by this automation. It records
-        whether the automation turned the bathroom lights ON and is therefore
-        allowed to turn them OFF after vacancy.
+        Dedicated input_boolean for this bathroom. ON means this automation
+        started the selected lights and is allowed to turn them OFF later.
       selector:
         entity:
           filter:
@@ -62,51 +62,162 @@ blueprint:
     fan_ownership_helper:
       name: "🔐 Fan Ownership Helper"
       description: >
-        Select a dedicated input_boolean used only by this automation. It records
-        whether the automation turned the exhaust fan ON and is therefore allowed
-        to turn it OFF after vacancy.
+        Dedicated input_boolean for this bathroom. ON means this automation
+        started the selected fan targets and is allowed to turn them OFF later.
       selector:
         entity:
           filter:
             domain: input_boolean
 
-    light_off_delay:
-      name: "💡 Light Off Delay"
+    auto_turn_on_lights:
+      name: "💡 Automatically Turn On Lights"
       description: >
-        Seconds the bathroom must remain fully vacant before automation-owned
-        lights are turned OFF.
-      default: 90
+        When enabled, occupancy can start the lights when every selected light
+        is currently OFF.
+      default: true
+      selector:
+        boolean:
+
+    auto_turn_on_fan:
+      name: "🌀 Automatically Turn On Fan"
+      description: >
+        When enabled, occupancy can start the fan when every selected fan target
+        is currently OFF.
+      default: true
+      selector:
+        boolean:
+
+    light_on_delay:
+      name: "💡 Light ON Delay"
+      description: >
+        Seconds occupancy must remain active before the automation turns the
+        lights ON. Use 0 for immediate lighting.
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 900
+          step: 5
+          unit_of_measurement: seconds
+          mode: slider
+
+    fan_on_delay:
+      name: "🌀 Fan ON Delay"
+      description: >
+        Seconds occupancy must remain active before the automation turns the fan
+        ON. Use 0 for immediate ventilation, or a longer delay to avoid short
+        visits starting the fan.
+      default: 0
       selector:
         number:
           min: 0
           max: 1800
+          step: 10
+          unit_of_measurement: seconds
+          mode: slider
+
+    light_off_delay:
+      name: "💡 Light OFF Delay"
+      description: >
+        Seconds of continuous full vacancy before automation-owned lights are
+        turned OFF.
+      default: 90
+      selector:
+        number:
+          min: 0
+          max: 3600
           step: 5
           unit_of_measurement: seconds
           mode: slider
 
     fan_off_delay:
-      name: "🌀 Fan Off Delay"
+      name: "🌀 Fan OFF Delay"
       description: >
-        Seconds the bathroom must remain fully vacant before an automation-owned
-        exhaust fan is turned OFF. A longer delay than the light is recommended.
+        Seconds of continuous full vacancy before an automation-owned fan is
+        turned OFF.
       default: 420
       selector:
         number:
           min: 0
-          max: 3600
+          max: 7200
           step: 10
+          unit_of_measurement: seconds
+          mode: slider
+
+    light_manual_on_behavior:
+      name: "✋ Manual Light ON Behavior"
+      description: >
+        Defines what happens when the lights were already ON manually before the
+        automation claimed them. Timed Hold is recommended: manual ON is treated
+        as a temporary occupancy hold and is automatically released after the
+        configurable maximum hold time once the bathroom is vacant.
+      default: timed_hold
+      selector:
+        select:
+          options:
+            - label: "Timed Hold — auto-off after maximum manual hold"
+              value: timed_hold
+            - label: "Normal Vacancy Delay — auto-off after Light OFF Delay"
+              value: normal_vacancy
+            - label: "Keep On — never auto-off a manually started light"
+              value: keep_on
+
+    fan_manual_on_behavior:
+      name: "✋ Manual Fan ON Behavior"
+      description: >
+        Defines what happens when the fan was already ON manually before the
+        automation claimed it. Timed Hold is recommended to protect against a
+        forgotten fan while still respecting manual use.
+      default: timed_hold
+      selector:
+        select:
+          options:
+            - label: "Timed Hold — auto-off after maximum manual hold"
+              value: timed_hold
+            - label: "Normal Vacancy Delay — auto-off after Fan OFF Delay"
+              value: normal_vacancy
+            - label: "Keep On — never auto-off a manually started fan"
+              value: keep_on
+
+    light_manual_hold_max:
+      name: "⏳ Maximum Manual Light Hold"
+      description: >
+        Used only when Manual Light ON Behavior is Timed Hold. The timer begins
+        when the bathroom becomes fully vacant. If the lights are still manually
+        ON when this maximum expires, the automation turns them OFF.
+      default: 1800
+      selector:
+        number:
+          min: 0
+          max: 14400
+          step: 60
+          unit_of_measurement: seconds
+          mode: slider
+
+    fan_manual_hold_max:
+      name: "⏳ Maximum Manual Fan Hold"
+      description: >
+        Used only when Manual Fan ON Behavior is Timed Hold. The timer begins
+        when the bathroom becomes fully vacant. If the fan is still manually ON
+        when this maximum expires, the automation turns it OFF.
+      default: 3600
+      selector:
+        number:
+          min: 0
+          max: 14400
+          step: 60
           unit_of_measurement: seconds
           mode: slider
 
     startup_verify_seconds:
       name: "✅ Startup Verification"
       description: >
-        Maximum time allowed for automation-started lights/fan to report ON.
+        Maximum time allowed for devices started by the automation to report ON.
       default: 10
       selector:
         number:
           min: 3
-          max: 30
+          max: 60
           step: 1
           unit_of_measurement: seconds
           mode: slider
@@ -114,12 +225,13 @@ blueprint:
     shutdown_verify_seconds:
       name: "✅ Shutdown Verification"
       description: >
-        Maximum time allowed for automation-owned lights/fan to report OFF.
+        Maximum time allowed for devices turned OFF by the automation to report
+        OFF.
       default: 15
       selector:
         number:
           min: 3
-          max: 30
+          max: 60
           step: 1
           unit_of_measurement: seconds
           mode: slider
@@ -130,6 +242,10 @@ variables:
   fan_targets: !input fan_entities
   light_owner: !input light_ownership_helper
   fan_owner: !input fan_ownership_helper
+  light_auto_on: !input auto_turn_on_lights
+  fan_auto_on: !input auto_turn_on_fan
+  light_manual_behavior: !input light_manual_on_behavior
+  fan_manual_behavior: !input fan_manual_on_behavior
   start_verify: !input startup_verify_seconds
   stop_verify: !input shutdown_verify_seconds
 
@@ -154,27 +270,42 @@ actions:
           - condition: trigger
             id: occupied
         sequence:
-          - choose:
-              - conditions:
+          - parallel:
+              - sequence:
+                  - condition: template
+                    value_template: "{{ light_auto_on }}"
+
+                  - delay:
+                      seconds: !input light_on_delay
+
                   - condition: template
                     value_template: >
                       {{
-                        is_state(light_owner, 'on')
-                        and
-                        (
-                          expand(light_entities)
-                          | selectattr('state', 'eq', 'on')
-                          | list
-                          | count == 0
-                        )
+                        expand(occupancy_entities)
+                        | selectattr('state', 'eq', 'on')
+                        | list
+                        | count > 0
                       }}
-                sequence:
-                  - action: input_boolean.turn_off
-                    target:
-                      entity_id: !input light_ownership_helper
 
-          - choose:
-              - conditions:
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: >
+                              {{
+                                is_state(light_owner, 'on')
+                                and
+                                (
+                                  expand(light_entities)
+                                  | selectattr('state', 'eq', 'on')
+                                  | list
+                                  | count == 0
+                                )
+                              }}
+                        sequence:
+                          - action: input_boolean.turn_off
+                            target:
+                              entity_id: !input light_ownership_helper
+
                   - condition: template
                     value_template: >
                       {{
@@ -187,7 +318,11 @@ actions:
                           | count == 0
                         )
                       }}
-                sequence:
+
+                  - action: input_boolean.turn_on
+                    target:
+                      entity_id: !input light_ownership_helper
+
                   - action: light.turn_on
                     target:
                       entity_id: !input lights_to_control
@@ -206,49 +341,59 @@ actions:
                   - choose:
                       - conditions:
                           - condition: template
-                            value_template: "{{ wait.completed }}"
+                            value_template: "{{ not wait.completed }}"
                         sequence:
-                          - action: input_boolean.turn_on
+                          - action: light.turn_off
+                            continue_on_error: true
+                            target:
+                              entity_id: !input lights_to_control
+                          - action: input_boolean.turn_off
                             target:
                               entity_id: !input light_ownership_helper
-                    default:
-                      - action: light.turn_off
-                        continue_on_error: true
-                        target:
-                          entity_id: !input lights_to_control
-                      - action: input_boolean.turn_off
-                        target:
-                          entity_id: !input light_ownership_helper
-                      - action: persistent_notification.create
-                        data:
-                          title: "Bathroom light startup not confirmed"
-                          message: >
-                            The bathroom automation attempted to start its selected
-                            lights, but not every light reported ON within
-                            {{ start_verify }} seconds. The automation sent OFF as
-                            a precaution and did not claim ownership.
+                          - action: persistent_notification.create
+                            data:
+                              title: "Bathroom light startup not confirmed"
+                              message: >
+                                The bathroom automation attempted to start its
+                                selected lights, but not every light reported ON
+                                within {{ start_verify }} seconds. The automation
+                                sent OFF as a precaution and released ownership.
 
-          - choose:
-              - conditions:
+              - sequence:
+                  - condition: template
+                    value_template: "{{ fan_auto_on }}"
+
+                  - delay:
+                      seconds: !input fan_on_delay
+
                   - condition: template
                     value_template: >
                       {{
-                        is_state(fan_owner, 'on')
-                        and
-                        (
-                          expand(fan_targets)
-                          | selectattr('state', 'eq', 'on')
-                          | list
-                          | count == 0
-                        )
+                        expand(occupancy_entities)
+                        | selectattr('state', 'eq', 'on')
+                        | list
+                        | count > 0
                       }}
-                sequence:
-                  - action: input_boolean.turn_off
-                    target:
-                      entity_id: !input fan_ownership_helper
 
-          - choose:
-              - conditions:
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: >
+                              {{
+                                is_state(fan_owner, 'on')
+                                and
+                                (
+                                  expand(fan_targets)
+                                  | selectattr('state', 'eq', 'on')
+                                  | list
+                                  | count == 0
+                                )
+                              }}
+                        sequence:
+                          - action: input_boolean.turn_off
+                            target:
+                              entity_id: !input fan_ownership_helper
+
                   - condition: template
                     value_template: >
                       {{
@@ -261,7 +406,11 @@ actions:
                           | count == 0
                         )
                       }}
-                sequence:
+
+                  - action: input_boolean.turn_on
+                    target:
+                      entity_id: !input fan_ownership_helper
+
                   - action: homeassistant.turn_on
                     target:
                       entity_id: !input fan_entities
@@ -280,132 +429,391 @@ actions:
                   - choose:
                       - conditions:
                           - condition: template
-                            value_template: "{{ wait.completed }}"
+                            value_template: "{{ not wait.completed }}"
                         sequence:
-                          - action: input_boolean.turn_on
+                          - action: homeassistant.turn_off
+                            continue_on_error: true
+                            target:
+                              entity_id: !input fan_entities
+                          - action: input_boolean.turn_off
                             target:
                               entity_id: !input fan_ownership_helper
-                    default:
-                      - action: homeassistant.turn_off
-                        continue_on_error: true
-                        target:
-                          entity_id: !input fan_entities
-                      - action: input_boolean.turn_off
-                        target:
-                          entity_id: !input fan_ownership_helper
-                      - action: persistent_notification.create
-                        data:
-                          title: "Bathroom fan startup not confirmed"
-                          message: >
-                            The bathroom automation attempted to start its selected
-                            exhaust fan entities, but not every target reported ON
-                            within {{ start_verify }} seconds. The automation sent
-                            OFF as a precaution and did not claim ownership.
+                          - action: persistent_notification.create
+                            data:
+                              title: "Bathroom fan startup not confirmed"
+                              message: >
+                                The bathroom automation attempted to start its
+                                selected fan targets, but not every target reported
+                                ON within {{ start_verify }} seconds. The automation
+                                sent OFF as a precaution and released ownership.
 
       - conditions:
           - condition: trigger
             id: vacancy_change
         sequence:
+          - condition: template
+            value_template: >
+              {{
+                expand(occupancy_entities)
+                | rejectattr('state', 'eq', 'off')
+                | list
+                | count == 0
+              }}
+
           - parallel:
               - sequence:
-                  - delay:
-                      seconds: !input light_off_delay
-
-                  - condition: template
-                    value_template: >
-                      {{
-                        expand(occupancy_entities)
-                        | rejectattr('state', 'eq', 'off')
-                        | list
-                        | count == 0
-                      }}
-
-                  - condition: template
-                    value_template: "{{ is_state(light_owner, 'on') }}"
-
-                  - action: light.turn_off
-                    continue_on_error: true
-                    target:
-                      entity_id: !input lights_to_control
-
-                  - wait_template: >
-                      {{
-                        expand(light_entities)
-                        | rejectattr('state', 'eq', 'off')
-                        | list
-                        | count == 0
-                      }}
-                    timeout:
-                      seconds: "{{ stop_verify | int }}"
-                    continue_on_timeout: true
-
                   - choose:
                       - conditions:
                           - condition: template
-                            value_template: "{{ wait.completed }}"
+                            value_template: "{{ is_state(light_owner, 'on') }}"
                         sequence:
-                          - action: input_boolean.turn_off
+                          - delay:
+                              seconds: !input light_off_delay
+
+                          - condition: template
+                            value_template: >
+                              {{
+                                expand(occupancy_entities)
+                                | rejectattr('state', 'eq', 'off')
+                                | list
+                                | count == 0
+                              }}
+
+                          - condition: template
+                            value_template: "{{ is_state(light_owner, 'on') }}"
+
+                          - action: light.turn_off
+                            continue_on_error: true
                             target:
-                              entity_id: !input light_ownership_helper
-                    default:
-                      - action: persistent_notification.create
-                        data:
-                          title: "Bathroom light shutdown not confirmed"
-                          message: >
-                            The bathroom automation sent OFF to its selected
-                            lights, but not every light reported OFF within
-                            {{ stop_verify }} seconds. Light ownership remains ON
-                            so a later vacancy cycle can retry the shutdown.
+                              entity_id: !input lights_to_control
+
+                          - wait_template: >
+                              {{
+                                expand(light_entities)
+                                | rejectattr('state', 'eq', 'off')
+                                | list
+                                | count == 0
+                              }}
+                            timeout:
+                              seconds: "{{ stop_verify | int }}"
+                            continue_on_timeout: true
+
+                          - choose:
+                              - conditions:
+                                  - condition: template
+                                    value_template: "{{ wait.completed }}"
+                                sequence:
+                                  - action: input_boolean.turn_off
+                                    target:
+                                      entity_id: !input light_ownership_helper
+                            default:
+                              - action: persistent_notification.create
+                                data:
+                                  title: "Bathroom light shutdown not confirmed"
+                                  message: >
+                                    OFF was sent to the automation-owned bathroom
+                                    lights, but not every light reported OFF within
+                                    {{ stop_verify }} seconds. Ownership remains ON
+                                    so a later vacancy cycle can retry.
+
+                      - conditions:
+                          - condition: template
+                            value_template: >
+                              {{
+                                is_state(light_owner, 'off')
+                                and
+                                (
+                                  expand(light_entities)
+                                  | selectattr('state', 'eq', 'on')
+                                  | list
+                                  | count > 0
+                                )
+                              }}
+                        sequence:
+                          - choose:
+                              - conditions:
+                                  - condition: template
+                                    value_template: "{{ light_manual_behavior == 'timed_hold' }}"
+                                sequence:
+                                  - delay:
+                                      seconds: !input light_manual_hold_max
+                                  - condition: template
+                                    value_template: >
+                                      {{
+                                        expand(occupancy_entities)
+                                        | rejectattr('state', 'eq', 'off')
+                                        | list
+                                        | count == 0
+                                        and is_state(light_owner, 'off')
+                                        and
+                                        (
+                                          expand(light_entities)
+                                          | selectattr('state', 'eq', 'on')
+                                          | list
+                                          | count > 0
+                                        )
+                                      }}
+                                  - action: light.turn_off
+                                    continue_on_error: true
+                                    target:
+                                      entity_id: !input lights_to_control
+                                  - wait_template: >
+                                      {{
+                                        expand(light_entities)
+                                        | rejectattr('state', 'eq', 'off')
+                                        | list
+                                        | count == 0
+                                      }}
+                                    timeout:
+                                      seconds: "{{ stop_verify | int }}"
+                                    continue_on_timeout: true
+                                  - choose:
+                                      - conditions:
+                                          - condition: template
+                                            value_template: "{{ not wait.completed }}"
+                                        sequence:
+                                          - action: persistent_notification.create
+                                            data:
+                                              title: "Manual bathroom light hold expired, shutdown not confirmed"
+                                              message: >
+                                                The maximum manual light hold
+                                                expired while the bathroom was
+                                                vacant. OFF was sent, but not every
+                                                light reported OFF within
+                                                {{ stop_verify }} seconds.
+
+                              - conditions:
+                                  - condition: template
+                                    value_template: "{{ light_manual_behavior == 'normal_vacancy' }}"
+                                sequence:
+                                  - delay:
+                                      seconds: !input light_off_delay
+                                  - condition: template
+                                    value_template: >
+                                      {{
+                                        expand(occupancy_entities)
+                                        | rejectattr('state', 'eq', 'off')
+                                        | list
+                                        | count == 0
+                                        and is_state(light_owner, 'off')
+                                        and
+                                        (
+                                          expand(light_entities)
+                                          | selectattr('state', 'eq', 'on')
+                                          | list
+                                          | count > 0
+                                        )
+                                      }}
+                                  - action: light.turn_off
+                                    continue_on_error: true
+                                    target:
+                                      entity_id: !input lights_to_control
+                                  - wait_template: >
+                                      {{
+                                        expand(light_entities)
+                                        | rejectattr('state', 'eq', 'off')
+                                        | list
+                                        | count == 0
+                                      }}
+                                    timeout:
+                                      seconds: "{{ stop_verify | int }}"
+                                    continue_on_timeout: true
+                                  - choose:
+                                      - conditions:
+                                          - condition: template
+                                            value_template: "{{ not wait.completed }}"
+                                        sequence:
+                                          - action: persistent_notification.create
+                                            data:
+                                              title: "Manual bathroom light shutdown not confirmed"
+                                              message: >
+                                                The normal vacancy delay expired
+                                                for manually started lights, but
+                                                not every light reported OFF within
+                                                {{ stop_verify }} seconds.
+
+                              - conditions:
+                                  - condition: template
+                                    value_template: "{{ light_manual_behavior == 'keep_on' }}"
+                                sequence:
+                                  - stop: "Manual light is configured to stay ON until manually turned OFF"
 
               - sequence:
-                  - delay:
-                      seconds: !input fan_off_delay
-
-                  - condition: template
-                    value_template: >
-                      {{
-                        expand(occupancy_entities)
-                        | rejectattr('state', 'eq', 'off')
-                        | list
-                        | count == 0
-                      }}
-
-                  - condition: template
-                    value_template: "{{ is_state(fan_owner, 'on') }}"
-
-                  - action: homeassistant.turn_off
-                    continue_on_error: true
-                    target:
-                      entity_id: !input fan_entities
-
-                  - wait_template: >
-                      {{
-                        expand(fan_targets)
-                        | rejectattr('state', 'eq', 'off')
-                        | list
-                        | count == 0
-                      }}
-                    timeout:
-                      seconds: "{{ stop_verify | int }}"
-                    continue_on_timeout: true
-
                   - choose:
                       - conditions:
                           - condition: template
-                            value_template: "{{ wait.completed }}"
+                            value_template: "{{ is_state(fan_owner, 'on') }}"
                         sequence:
-                          - action: input_boolean.turn_off
+                          - delay:
+                              seconds: !input fan_off_delay
+
+                          - condition: template
+                            value_template: >
+                              {{
+                                expand(occupancy_entities)
+                                | rejectattr('state', 'eq', 'off')
+                                | list
+                                | count == 0
+                              }}
+
+                          - condition: template
+                            value_template: "{{ is_state(fan_owner, 'on') }}"
+
+                          - action: homeassistant.turn_off
+                            continue_on_error: true
                             target:
-                              entity_id: !input fan_ownership_helper
-                    default:
-                      - action: persistent_notification.create
-                        data:
-                          title: "Bathroom fan shutdown not confirmed"
-                          message: >
-                            The bathroom automation sent OFF to its selected
-                            exhaust fan entities, but not every target reported
-                            OFF within {{ stop_verify }} seconds. Fan ownership
-                            remains ON so a later vacancy cycle can retry.
+                              entity_id: !input fan_entities
+
+                          - wait_template: >
+                              {{
+                                expand(fan_targets)
+                                | rejectattr('state', 'eq', 'off')
+                                | list
+                                | count == 0
+                              }}
+                            timeout:
+                              seconds: "{{ stop_verify | int }}"
+                            continue_on_timeout: true
+
+                          - choose:
+                              - conditions:
+                                  - condition: template
+                                    value_template: "{{ wait.completed }}"
+                                sequence:
+                                  - action: input_boolean.turn_off
+                                    target:
+                                      entity_id: !input fan_ownership_helper
+                            default:
+                              - action: persistent_notification.create
+                                data:
+                                  title: "Bathroom fan shutdown not confirmed"
+                                  message: >
+                                    OFF was sent to the automation-owned bathroom
+                                    fan targets, but not every target reported OFF
+                                    within {{ stop_verify }} seconds. Ownership
+                                    remains ON so a later vacancy cycle can retry.
+
+                      - conditions:
+                          - condition: template
+                            value_template: >
+                              {{
+                                is_state(fan_owner, 'off')
+                                and
+                                (
+                                  expand(fan_targets)
+                                  | selectattr('state', 'eq', 'on')
+                                  | list
+                                  | count > 0
+                                )
+                              }}
+                        sequence:
+                          - choose:
+                              - conditions:
+                                  - condition: template
+                                    value_template: "{{ fan_manual_behavior == 'timed_hold' }}"
+                                sequence:
+                                  - delay:
+                                      seconds: !input fan_manual_hold_max
+                                  - condition: template
+                                    value_template: >
+                                      {{
+                                        expand(occupancy_entities)
+                                        | rejectattr('state', 'eq', 'off')
+                                        | list
+                                        | count == 0
+                                        and is_state(fan_owner, 'off')
+                                        and
+                                        (
+                                          expand(fan_targets)
+                                          | selectattr('state', 'eq', 'on')
+                                          | list
+                                          | count > 0
+                                        )
+                                      }}
+                                  - action: homeassistant.turn_off
+                                    continue_on_error: true
+                                    target:
+                                      entity_id: !input fan_entities
+                                  - wait_template: >
+                                      {{
+                                        expand(fan_targets)
+                                        | rejectattr('state', 'eq', 'off')
+                                        | list
+                                        | count == 0
+                                      }}
+                                    timeout:
+                                      seconds: "{{ stop_verify | int }}"
+                                    continue_on_timeout: true
+                                  - choose:
+                                      - conditions:
+                                          - condition: template
+                                            value_template: "{{ not wait.completed }}"
+                                        sequence:
+                                          - action: persistent_notification.create
+                                            data:
+                                              title: "Manual bathroom fan hold expired, shutdown not confirmed"
+                                              message: >
+                                                The maximum manual fan hold
+                                                expired while the bathroom was
+                                                vacant. OFF was sent, but not every
+                                                fan target reported OFF within
+                                                {{ stop_verify }} seconds.
+
+                              - conditions:
+                                  - condition: template
+                                    value_template: "{{ fan_manual_behavior == 'normal_vacancy' }}"
+                                sequence:
+                                  - delay:
+                                      seconds: !input fan_off_delay
+                                  - condition: template
+                                    value_template: >
+                                      {{
+                                        expand(occupancy_entities)
+                                        | rejectattr('state', 'eq', 'off')
+                                        | list
+                                        | count == 0
+                                        and is_state(fan_owner, 'off')
+                                        and
+                                        (
+                                          expand(fan_targets)
+                                          | selectattr('state', 'eq', 'on')
+                                          | list
+                                          | count > 0
+                                        )
+                                      }}
+                                  - action: homeassistant.turn_off
+                                    continue_on_error: true
+                                    target:
+                                      entity_id: !input fan_entities
+                                  - wait_template: >
+                                      {{
+                                        expand(fan_targets)
+                                        | rejectattr('state', 'eq', 'off')
+                                        | list
+                                        | count == 0
+                                      }}
+                                    timeout:
+                                      seconds: "{{ stop_verify | int }}"
+                                    continue_on_timeout: true
+                                  - choose:
+                                      - conditions:
+                                          - condition: template
+                                            value_template: "{{ not wait.completed }}"
+                                        sequence:
+                                          - action: persistent_notification.create
+                                            data:
+                                              title: "Manual bathroom fan shutdown not confirmed"
+                                              message: >
+                                                The normal vacancy delay expired
+                                                for a manually started fan, but
+                                                not every fan target reported OFF
+                                                within {{ stop_verify }} seconds.
+
+                              - conditions:
+                                  - condition: template
+                                    value_template: "{{ fan_manual_behavior == 'keep_on' }}"
+                                sequence:
+                                  - stop: "Manual fan is configured to stay ON until manually turned OFF"
 
 mode: restart
 max_exceeded: silent
