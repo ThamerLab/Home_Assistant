@@ -68,38 +68,34 @@ A sensor becoming OFF while another sensor remains ON does not count as vacancy.
 
 ### Step 2 — Automatic Light Start
 
-When the bathroom becomes occupied:
+The Light ON trigger itself uses Home Assistant's `for:` timer.
 
-1. If automatic light startup is enabled, wait Light ON Delay.
-2. Re-check that occupancy is still active.
-3. Turn the selected lights ON.
-4. Wait for every selected light to confirm ON.
-5. If confirmation fails, create a persistent diagnostic notification.
+The aggregate occupied condition must remain continuously true for Light ON Delay. If occupancy ends before the timer completes, the trigger does not fire.
+
+When it fires:
+
+1. Turn the selected lights ON.
+2. Wait for every selected light to confirm ON.
+3. If confirmation fails, create a persistent diagnostic notification.
 
 Set Light ON Delay to 0 for immediate lighting.
 
 ### Step 3 — Automatic Fan Start
 
-The fan works independently:
+The fan has its own independent template trigger and `for:` timer.
 
-1. If automatic fan startup is enabled, wait Fan ON Delay.
-2. Re-check occupancy.
-3. Turn the fan targets ON.
-4. Verify ON state.
-5. Report a persistent diagnostic if startup is not confirmed.
+Occupancy must remain continuously active for Fan ON Delay before the fan trigger fires. The action then turns the fan ON and verifies the result.
 
 A useful configuration is Light ON Delay = 0 and Fan ON Delay = 60 seconds, which prevents a very short bathroom visit from starting the exhaust fan.
 
 ### Step 4 — Normal Vacancy Shutdown
 
-When every selected occupancy sensor becomes OFF, the Blueprint starts two independent timers in parallel:
+The Blueprint has two independent vacancy triggers:
 
-- Light OFF Delay.
-- Fan OFF Delay.
+- Full vacancy must remain true for Light OFF Delay before the Light OFF action fires.
+- Full vacancy must remain true for Fan OFF Delay before the Fan OFF action fires.
 
-After each timer expires, the Blueprint checks that the bathroom is still fully vacant before sending OFF.
-
-This means re-entering the bathroom before a timer expires prevents that shutdown.
+Because the delays live in the triggers as `for:` durations, returning occupancy before a timer completes resets that timer automatically.
 
 ### Step 5 — Manual ON During an Occupied Visit
 
@@ -136,14 +132,16 @@ The Blueprint uses `mode: parallel` so safety checks and independent device time
 
 ### Step 8 — Home Assistant Restart
 
-Active Home Assistant timers do not survive a restart.
+Home Assistant `for:` trigger timers do not survive a restart or automation reload.
 
 The Blueprint includes a Home Assistant startup trigger:
 
 1. Wait Home Assistant Startup Reconcile Delay.
 2. Confirm the bathroom is fully vacant.
-3. Start normal Light OFF and Fan OFF protection again.
-4. If occupancy is active or any sensor is unknown/unavailable, no automatic startup-reconcile shutdown occurs.
+3. Turn the selected lights and fan targets OFF as a simple restart recovery.
+4. If occupancy is active or any sensor is unknown/unavailable, no startup-reconcile shutdown occurs.
+
+An automation reload does not fire the Home Assistant startup trigger. After a reload, the normal `for:` timers begin again only after the corresponding template has first gone false and then true. This is the main tradeoff of keeping the Blueprint completely helper-free.
 
 ## Why There Are No Helpers
 
