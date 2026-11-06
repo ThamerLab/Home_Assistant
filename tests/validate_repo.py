@@ -278,8 +278,10 @@ def check_bathroom_safety(rel_path: str, data: dict, errors: list[str]) -> None:
 
     required_fragments = [
         "trigger_variables",
-        "id: occupied",
-        "id: vacant",
+        "id: light_on_ready",
+        "id: fan_on_ready",
+        "id: light_off_ready",
+        "id: fan_off_ready",
         "id: forgotten_light",
         "id: forgotten_fan",
         "id: startup_reconcile",
