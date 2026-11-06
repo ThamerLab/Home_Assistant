@@ -126,3 +126,4 @@
       fan_manual_hold_max: 3600
       startup_verify_seconds: 10
       shutdown_verify_seconds: 15
+      startup_reconcile_delay: 30
