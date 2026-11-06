@@ -236,6 +236,9 @@ blueprint:
           unit_of_measurement: seconds
           mode: slider
 
+trigger_variables:
+  trigger_occupancy_entities: !input occupancy_sensors
+
 variables:
   occupancy_entities: !input occupancy_sensors
   light_entities: !input lights_to_control
@@ -250,17 +253,25 @@ variables:
   stop_verify: !input shutdown_verify_seconds
 
 triggers:
-  - trigger: state
-    entity_id: !input occupancy_sensors
-    from: "off"
-    to: "on"
+  - trigger: template
+    value_template: >
+      {{
+        expand(trigger_occupancy_entities)
+        | selectattr('state', 'eq', 'on')
+        | list
+        | count > 0
+      }}
     id: occupied
 
-  - trigger: state
-    entity_id: !input occupancy_sensors
-    from: "on"
-    to: "off"
-    id: vacancy_change
+  - trigger: template
+    value_template: >
+      {{
+        expand(trigger_occupancy_entities)
+        | rejectattr('state', 'eq', 'off')
+        | list
+        | count == 0
+      }}
+    id: vacant
 
 conditions: []
 
@@ -449,7 +460,7 @@ actions:
 
       - conditions:
           - condition: trigger
-            id: vacancy_change
+            id: vacant
         sequence:
           - condition: template
             value_template: >
