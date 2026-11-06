@@ -236,6 +236,21 @@ blueprint:
           unit_of_measurement: seconds
           mode: slider
 
+    startup_reconcile_delay:
+      name: "🔄 Home Assistant Startup Reconcile Delay"
+      description: >
+        Seconds to wait after Home Assistant starts before reconciling a fully
+        vacant bathroom. This restarts vacancy/manual-hold protection after a
+        Home Assistant restart without acting while entities are still restoring.
+      default: 30
+      selector:
+        number:
+          min: 0
+          max: 300
+          step: 5
+          unit_of_measurement: seconds
+          mode: slider
+
 trigger_variables:
   trigger_occupancy_entities: !input occupancy_sensors
 
@@ -272,6 +287,10 @@ triggers:
         | count == 0
       }}
     id: vacant
+
+  - trigger: homeassistant
+    event: start
+    id: startup_reconcile
 
 conditions: []
 
@@ -459,9 +478,17 @@ actions:
                                 sent OFF as a precaution and released ownership.
 
       - conditions:
-          - condition: trigger
-            id: vacant
+          - condition: template
+            value_template: "{{ trigger.id in ['vacant', 'startup_reconcile'] }}"
         sequence:
+          - choose:
+              - conditions:
+                  - condition: trigger
+                    id: startup_reconcile
+                sequence:
+                  - delay:
+                      seconds: !input startup_reconcile_delay
+
           - condition: template
             value_template: >
               {{
