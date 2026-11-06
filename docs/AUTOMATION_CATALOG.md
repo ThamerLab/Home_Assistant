@@ -195,61 +195,45 @@ The exact URI check prevents unrelated content from being mistaken for the reque
 
 ## 10. 🚿 Bathroom Occupancy — Lights & Exhaust Fan
 
-**Triggers:** Any selected occupancy/motion sensor changing ON or OFF.
+**No helper entities are required.**
 
 ### Step-by-Step Flow
 
-1. Aggregate occupancy becomes active when any selected sensor is ON; full vacancy occurs only when all selected sensors are OFF.
-2. Optional Light ON Delay and Fan ON Delay run independently.
-3. After each ON delay, occupancy must still be active before that device class may start.
-4. Automatic light and fan startup can each be disabled independently.
-5. If a device class is OFF and unowned, the automation records ownership before sending ON.
-6. Startup must be verified; failed startup releases ownership and sends a persistent diagnostic.
-7. When the bathroom becomes fully vacant, light and fan shutdown logic run independently.
-8. Automation-owned lights use Light OFF Delay.
-9. Automation-owned fan targets use Fan OFF Delay.
-10. A manually pre-started device class follows its selected manual policy:
-    - Timed Hold.
-    - Normal Vacancy Delay.
-    - Keep On.
-11. Timed Hold uses independently configurable maximum light/fan hold times.
-12. Before every OFF command, the Blueprint re-checks vacancy, ownership, and current device state.
-13. OFF commands are verified before automation ownership is released.
-14. Returning aggregate occupancy restarts the automation and cancels pending shutdown delays.
-15. After Home Assistant startup, a configurable reconcile delay restores vacancy/manual-hold protection when the bathroom is fully vacant.
+1. The Blueprint combines all selected sensors into an aggregate bathroom state.
+2. Any sensor ON means occupied.
+3. All sensors OFF means vacant.
+4. The Light ON trigger requires occupancy to remain active for the configurable Light ON Delay.
+5. The Fan ON trigger independently requires occupancy to remain active for the configurable Fan ON Delay.
+6. Light and fan automatic startup can each be disabled independently.
+7. The Light OFF trigger requires full vacancy to remain continuously true for Light OFF Delay.
+8. The Fan OFF trigger independently requires full vacancy for Fan OFF Delay.
+9. If occupancy returns before either `for:` timer completes, Home Assistant resets that trigger timer automatically.
+10. Forgotten Light Safety detects lights that remain ON while the bathroom is already vacant and shuts them down after its configurable timeout.
+11. Forgotten Fan Safety does the same for the exhaust fan.
+12. Every normal ON/OFF command is followed by state verification.
+13. After a Home Assistant restart, Startup Reconcile Delay provides a simple recovery path when the bathroom is still fully vacant.
 
-### Timing Controls
-
-Every important timing value is adjustable from the Blueprint UI:
+### Configurable Timing
 
 - Light ON Delay.
 - Fan ON Delay.
 - Light OFF Delay.
 - Fan OFF Delay.
-- Maximum Manual Light Hold.
-- Maximum Manual Fan Hold.
-- Startup Verification timeout.
-- Shutdown Verification timeout.
+- Forgotten Light Safety Timeout.
+- Forgotten Fan Safety Timeout.
+- Startup Verification.
+- Shutdown Verification.
 - Home Assistant Startup Reconcile Delay.
 
-### Manual ON Policy
+### Why No Helpers?
 
-Manual pre-states are identified by an OFF ownership helper while the selected device class is already ON.
+The Blueprint deliberately treats bathroom occupancy as the source of truth rather than tracking ownership with extra entities.
 
-**Timed Hold** is the recommended default: manual ON behaves like a temporary occupancy hold after vacancy, but a configurable maximum protects against forgotten devices.
+If a device is ON during a visit, the normal vacancy delay handles it after the bathroom becomes vacant.
 
-**Normal Vacancy Delay** uses the standard class OFF delay.
-
-**Keep On** never turns a manually pre-started class OFF.
+If a device is manually switched ON while the bathroom is already vacant, the forgotten-device safety timeout handles it.
 
 ### Automated Test Coverage
 
-`tests/test_bathroom_logic.py` runs exactly 100 deterministic configurations covering:
-
-- Manual light/fan pre-states.
-- Automatic light/fan enable flags.
-- ON-delay persistence.
-- All three manual policies.
-- Interrupted shutdown windows.
-- Independent light and fan ownership.
+`tests/test_bathroom_logic.py` runs exactly 100 deterministic no-helper scenarios covering automatic startup, timing, re-entry, forgotten-device safety, and startup reconciliation.
 
