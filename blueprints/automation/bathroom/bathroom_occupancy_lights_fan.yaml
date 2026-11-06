@@ -632,11 +632,7 @@ actions:
                                                 not every light reported OFF within
                                                 {{ stop_verify }} seconds.
 
-                              - conditions:
-                                  - condition: template
-                                    value_template: "{{ light_manual_behavior == 'keep_on' }}"
-                                sequence:
-                                  - stop: "Manual light is configured to stay ON until manually turned OFF"
+                            default: []
 
               - sequence:
                   - choose:
@@ -809,11 +805,7 @@ actions:
                                                 not every fan target reported OFF
                                                 within {{ stop_verify }} seconds.
 
-                              - conditions:
-                                  - condition: template
-                                    value_template: "{{ fan_manual_behavior == 'keep_on' }}"
-                                sequence:
-                                  - stop: "Manual fan is configured to stay ON until manually turned OFF"
+                            default: []
 
 mode: restart
 max_exceeded: silent
