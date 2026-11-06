@@ -214,12 +214,15 @@ This repository does not preserve a private copy of one home. Instead, it turns 
 `bathroom_occupancy_lights_fan.yaml`
 
 - Supports one or more occupancy/motion sensors.
-- Uses separate light and fan off delays.
+- Independent Light ON, Fan ON, Light OFF, and Fan OFF delays.
+- Automatic light and fan startup can each be enabled or disabled.
+- Manual ON supports Timed Hold, Normal Vacancy Delay, or Keep On.
+- Maximum manual light and fan hold times are independently configurable.
 - Supports fan entities and relay-controlled fan switches.
-- Uses persistent ownership helpers so pre-existing manual ON states are not turned OFF by the automation.
+- Persistent ownership helpers distinguish automation-started devices from manual pre-states.
 - Returning occupancy cancels pending OFF delays.
 - Verifies ON and OFF state transitions.
-- Includes a 100-case deterministic ownership/vacancy logic test in CI.
+- Includes a 100-case deterministic configuration/ownership/vacancy logic test in CI.
 
 [📖 Detailed guide](./blueprints/automation/bathroom/README.md)
 
