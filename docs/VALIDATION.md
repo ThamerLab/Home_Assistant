@@ -93,18 +93,27 @@ CI also runs:
 python tests/test_bathroom_logic.py
 ```
 
-This executes exactly **100 deterministic configuration/ownership/vacancy scenarios** and verifies:
+This executes exactly **100 deterministic no-helper scenarios** and verifies:
 
-- Manual pre-states are not incorrectly claimed by automation ownership.
-- Automatic light/fan enable flags are respected.
-- Occupancy ending before an ON delay prevents that automatic start.
-- Timed Hold, Normal Vacancy Delay, and Keep On produce the expected manual-state result.
-- Returning occupancy before shutdown preserves the current device/ownership state.
-- Automation-owned devices turn OFF after an uninterrupted vacancy cycle.
-- Light and fan ownership remain independent.
-- Numeric ON/OFF/manual-hold timing deadlines and re-entry timing are exercised across the 100 deterministic cases.
+- Automatic light ON enable/disable behavior.
+- Automatic fan ON enable/disable behavior.
+- Light and fan ON delays.
+- Light and fan OFF delays.
+- Re-entry before an OFF deadline prevents shutdown.
+- Forgotten Light Safety enabled/disabled behavior.
+- Forgotten Fan Safety enabled/disabled behavior.
+- Independent safety timeouts.
+- Manual device states while the bathroom is already vacant.
+- Home Assistant startup reconciliation behavior.
 
-The static validator also requires all configurable bathroom timing inputs, all three manual policies, ownership helpers, verification actions, failure notifications, and `mode: restart`.
+The static validator also enforces that the bathroom Blueprint:
+
+- Requires **no `input_boolean` helpers**.
+- Includes all timing and safety inputs.
+- Uses aggregate template triggers.
+- Includes separate normal OFF and forgotten-device safety triggers.
+- Uses bounded verification waits.
+- Uses `mode: parallel` so independent light/fan actions do not cancel one another.
 
 ## 4. Manual Logic Audit
 
