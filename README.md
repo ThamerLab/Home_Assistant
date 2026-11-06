@@ -220,7 +220,9 @@ This repository does not preserve a private copy of one home. Instead, it turns 
 - Maximum manual light and fan hold times are independently configurable.
 - Supports fan entities and relay-controlled fan switches.
 - Persistent ownership helpers distinguish automation-started devices from manual pre-states.
+- Aggregate multi-sensor occupancy avoids partial-sensor timer resets.
 - Returning occupancy cancels pending OFF delays.
+- Configurable startup reconcile delay restores vacancy/manual-hold protection after Home Assistant restarts.
 - Verifies ON and OFF state transitions.
 - Includes a 100-case deterministic configuration/ownership/vacancy logic test in CI.
 
