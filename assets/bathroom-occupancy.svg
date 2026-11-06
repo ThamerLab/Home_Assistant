@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="900" height="360" viewBox="0 0 900 360" role="img" aria-labelledby="title desc">
   <title id="title">Bathroom Occupancy Lights and Exhaust Fan</title>
-  <desc id="desc">Blueprint artwork for configurable occupancy-controlled bathroom lights and exhaust fan with manual hold protection.</desc>
+  <desc id="desc">Self-contained bathroom occupancy Blueprint with flexible timers and forgotten-device safety.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop stop-color="#071A27"/>
@@ -11,14 +11,14 @@
   <rect width="900" height="360" rx="30" fill="url(#bg)"/>
   <text x="54" y="68" fill="#B9F4FF" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700">BATHROOM AUTOMATION</text>
   <text x="54" y="120" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800">Occupancy • Lights • Exhaust Fan</text>
-  <text x="54" y="160" fill="#D8F1F2" font-family="Arial, Helvetica, sans-serif" font-size="20">Flexible timers • Manual Hold • Verified ownership</text>
+  <text x="54" y="160" fill="#D8F1F2" font-family="Arial, Helvetica, sans-serif" font-size="20">No helpers • Flexible timers • Forgotten-device safety</text>
   <g transform="translate(55 208)">
-    <rect width="170" height="54" rx="27" fill="#41BDF5" opacity=".16" stroke="#41BDF5" stroke-opacity=".7"/>
-    <text x="85" y="35" text-anchor="middle" fill="#EBF9FF" font-family="Arial" font-size="17" font-weight="700">ON delays</text>
-    <rect x="186" width="170" height="54" rx="27" fill="#FBBF24" opacity=".16" stroke="#FBBF24" stroke-opacity=".7"/>
-    <text x="271" y="35" text-anchor="middle" fill="#FFF7DF" font-family="Arial" font-size="17" font-weight="700">OFF delays</text>
-    <rect x="372" width="190" height="54" rx="27" fill="#10B981" opacity=".16" stroke="#10B981" stroke-opacity=".7"/>
-    <text x="467" y="35" text-anchor="middle" fill="#EAFFF7" font-family="Arial" font-size="17" font-weight="700">Manual Hold</text>
+    <rect width="160" height="54" rx="27" fill="#41BDF5" opacity=".16" stroke="#41BDF5" stroke-opacity=".7"/>
+    <text x="80" y="35" text-anchor="middle" fill="#EBF9FF" font-family="Arial" font-size="17" font-weight="700">ON timers</text>
+    <rect x="176" width="160" height="54" rx="27" fill="#FBBF24" opacity=".16" stroke="#FBBF24" stroke-opacity=".7"/>
+    <text x="256" y="35" text-anchor="middle" fill="#FFF7DF" font-family="Arial" font-size="17" font-weight="700">OFF timers</text>
+    <rect x="352" width="210" height="54" rx="27" fill="#10B981" opacity=".16" stroke="#10B981" stroke-opacity=".7"/>
+    <text x="457" y="35" text-anchor="middle" fill="#EAFFF7" font-family="Arial" font-size="17" font-weight="700">Safety timeout</text>
   </g>
   <g transform="translate(690 70)">
     <path d="M55 0c31 0 55 24 55 55s-24 55-55 55S0 86 0 55 24 0 55 0Z" fill="none" stroke="#41BDF5" stroke-width="9"/>

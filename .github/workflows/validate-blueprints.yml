@@ -42,7 +42,7 @@ jobs:
       - name: Validate repository
         run: python tests/validate_repo.py
 
-      - name: Run 100 bathroom ownership scenarios
+      - name: Run 100 bathroom no-helper scenarios
         run: python tests/test_bathroom_logic.py
 
   home-assistant-check:

@@ -6,247 +6,191 @@
 
 File: `bathroom_occupancy_lights_fan.yaml`
 
-This Blueprint is designed as a long-term bathroom automation rather than a fixed one-off rule. Every important timing value is configurable from the Blueprint UI, and manual ON states can use one of three behaviors.
+This Blueprint is intentionally self-contained. **No helper entities are required.**
 
-## Design Goals
+You only select:
+
+- Occupancy / motion sensors.
+- Bathroom lights.
+- Exhaust fan targets.
+- The timing and safety options you want.
+
+Everything else is handled inside the Blueprint.
+
+## What It Supports
 
 - One or more occupancy/motion sensors.
-- Independent light and fan logic.
+- Aggregate occupancy: any sensor ON = occupied; all sensors OFF = vacant.
 - Optional automatic light ON.
 - Optional automatic fan ON.
-- Configurable light ON delay.
-- Configurable fan ON delay.
-- Configurable light OFF delay.
-- Configurable fan OFF delay.
-- Configurable maximum manual light hold.
-- Configurable maximum manual fan hold.
-- Configurable startup and shutdown verification timeouts.
-- Three manual-ON policies for each device class.
-- Persistent ownership helpers so the automation knows what it started itself.
-
-## Required Ownership Helpers
-
-Create two dedicated Toggle helpers before creating the automation:
-
-```text
-Settings
-→ Devices & services
-→ Helpers
-→ Create helper
-→ Toggle
-```
-
-Recommended names:
-
-- Bathroom Light Automation Ownership
-- Bathroom Fan Automation Ownership
-
-Use dedicated helpers for each bathroom automation instance.
-
-The helper is ON only when this automation started that device class. If a device was already ON before the automation claimed it, the helper remains OFF and the state is treated as manual.
+- Independent Light ON and Fan ON delays.
+- Independent Light OFF and Fan OFF delays.
+- Forgotten-light safety timeout while the bathroom is already vacant.
+- Forgotten-fan safety timeout while the bathroom is already vacant.
+- Configurable startup and shutdown verification.
+- Home Assistant startup reconciliation.
+- Fan entities and relay-style switch entities.
+- No ownership helper.
+- No Toggle helper.
+- No input_boolean setup.
 
 ## Inputs
 
 | Input | Default | Purpose |
 |---|---:|---|
-| Occupancy / Motion Sensors | — | Any ON = occupied; all OFF = vacant |
-| Bathroom Lights | — | Light entities controlled by the Blueprint |
-| Exhaust Fan | — | Fan or switch entities used for ventilation |
-| Light Ownership Helper | — | Records automation ownership of the lights |
-| Fan Ownership Helper | — | Records automation ownership of the fan |
-| Automatically Turn On Lights | ON | Allows occupancy to start lights |
-| Automatically Turn On Fan | ON | Allows occupancy to start fan |
-| Light ON Delay | 0 sec | How long occupancy must remain active before lights start |
-| Fan ON Delay | 0 sec | How long occupancy must remain active before fan starts |
-| Light OFF Delay | 90 sec | Vacancy delay for automation-owned lights |
-| Fan OFF Delay | 420 sec | Vacancy delay for automation-owned fan |
-| Manual Light ON Behavior | Timed Hold | Policy for manually pre-started lights |
-| Manual Fan ON Behavior | Timed Hold | Policy for manually pre-started fan |
-| Maximum Manual Light Hold | 1800 sec | Maximum vacant hold for manual lights |
-| Maximum Manual Fan Hold | 3600 sec | Maximum vacant hold for manual fan |
-| Startup Verification | 10 sec | Time allowed for automation-started devices to confirm ON |
-| Shutdown Verification | 15 sec | Time allowed for controlled devices to confirm OFF |
-| Home Assistant Startup Reconcile Delay | 30 sec | Wait after HA startup before restarting vacancy/manual-hold protection |
-
-## Manual ON Behaviors
-
-Each device class has its own independent policy.
-
-### Timed Hold — Recommended
-
-Manual ON is treated as a temporary occupancy hold.
-
-When the bathroom becomes fully vacant:
-
-1. The manual-hold timer starts.
-2. The device remains ON during that hold.
-3. If occupancy returns, `mode: restart` cancels the pending shutdown.
-4. If the bathroom remains vacant until the maximum hold expires, the device is turned OFF.
-5. Shutdown is verified.
-
-This is the recommended mode when you want manual control but do not want a forgotten light or fan to remain ON indefinitely.
-
-### Normal Vacancy Delay
-
-A manually pre-started device is allowed to stay ON only for the same normal vacancy delay used by automation-owned devices.
-
-Example:
-
-- Light OFF Delay = 90 sec.
-- Manual Light ON Behavior = Normal Vacancy Delay.
-- A manually pre-started light will turn OFF after 90 seconds of continuous vacancy.
-
-### Keep On
-
-A manually pre-started device is never turned OFF by this automation.
-
-Use this only when the user's manual ON decision must always remain authoritative until the user turns the device OFF manually.
+| Occupancy / Motion Sensors | — | Any ON means occupied; all OFF means vacant |
+| Bathroom Lights | — | Lights controlled by the Blueprint |
+| Exhaust Fan | — | Fan or switch entities controlled by the Blueprint |
+| Automatically Turn On Lights | ON | Enables occupancy-based automatic light startup |
+| Automatically Turn On Fan | ON | Enables occupancy-based automatic fan startup |
+| Light ON Delay | 0 sec | Occupancy duration required before lights start |
+| Fan ON Delay | 0 sec | Occupancy duration required before fan starts |
+| Light OFF Delay | 90 sec | Continuous vacancy before lights are turned OFF |
+| Fan OFF Delay | 420 sec | Continuous vacancy before fan is turned OFF |
+| Forgotten Light Safety | ON | Protects against a light being switched ON while the bathroom is already vacant |
+| Forgotten Light Safety Timeout | 1800 sec | Maximum continuous vacant ON time before safety shutdown |
+| Forgotten Fan Safety | ON | Protects against a fan being switched ON while the bathroom is already vacant |
+| Forgotten Fan Safety Timeout | 3600 sec | Maximum continuous vacant ON time before safety shutdown |
+| Startup Verification | 10 sec | Time allowed for automatic ON to be confirmed |
+| Shutdown Verification | 15 sec | Time allowed for OFF to be confirmed |
+| Home Assistant Startup Reconcile Delay | 30 sec | Delay before restoring OFF protection after HA starts |
 
 ## Step-by-Step Execution
 
-### Step 1 — Aggregate Occupancy Starts
+### Step 1 — Aggregate Occupancy
 
-The Blueprint does not trigger independently on every sensor edge.
+The Blueprint combines all selected sensors into one logical bathroom state:
 
-It uses an aggregate template:
+- **Occupied:** at least one selected sensor is ON.
+- **Vacant:** every selected sensor is OFF.
 
-- **Occupied** becomes true when any selected sensor is ON.
-- **Vacant** becomes true only when every selected sensor is OFF.
+A sensor becoming OFF while another sensor remains ON does not count as vacancy.
 
-This is important with multiple sensors. One sensor turning OFF while another remains ON does not restart or cancel the active occupied sequence.
+### Step 2 — Automatic Light Start
 
-Because the Blueprint uses `mode: restart`, a true transition back to aggregate Occupied cancels any pending vacancy shutdown sequence.
+The Light ON trigger itself uses Home Assistant's `for:` timer.
 
-### Step 2 — Optional Light ON Delay
+The aggregate occupied condition must remain continuously true for Light ON Delay. If occupancy ends before the timer completes, the trigger does not fire.
 
-If automatic light ON is enabled, the automation waits the configured Light ON Delay.
+When it fires:
 
-After the delay, at least one occupancy sensor must still be ON.
+1. Turn the selected lights ON.
+2. Wait for every selected light to confirm ON.
+3. If confirmation fails, create a persistent diagnostic notification.
 
-If occupancy ended during the delay, the light is not started.
+Set Light ON Delay to 0 for immediate lighting.
 
-### Step 3 — Light Ownership Decision
+### Step 3 — Automatic Fan Start
 
-If every selected light is OFF and the automation does not currently own the lights:
+The fan has its own independent template trigger and `for:` timer.
 
-1. Light ownership is set ON **before** the ON command.
-2. The lights are turned ON.
-3. The automation waits for ON-state verification.
-4. If startup fails, OFF is sent as a precaution and ownership is released.
+Occupancy must remain continuously active for Fan ON Delay before the fan trigger fires. The action then turns the fan ON and verifies the result.
 
-If a selected light was already ON before the automation claimed it, the automation does not claim ownership.
+A useful configuration is Light ON Delay = 0 and Fan ON Delay = 60 seconds, which prevents a very short bathroom visit from starting the exhaust fan.
 
-### Step 4 — Optional Fan ON Delay
+### Step 4 — Normal Vacancy Shutdown
 
-The fan follows the same logic independently using Fan ON Delay.
+The Blueprint has two independent vacancy triggers:
 
-This allows useful configurations such as:
+- Full vacancy must remain true for Light OFF Delay before the Light OFF action fires.
+- Full vacancy must remain true for Fan OFF Delay before the Fan OFF action fires.
 
-- Lights immediately, fan immediately.
-- Lights immediately, fan after 60 seconds.
-- Lights automatic, fan manual only.
-- Fan automatic, lights manual only.
+Because the delays live in the triggers as `for:` durations, returning occupancy before a timer completes resets that timer automatically.
 
-### Step 5 — Full Vacancy Detection
+### Step 5 — Manual ON During an Occupied Visit
 
-A selected sensor changing OFF starts the vacancy branch only after the Blueprint confirms that **all** selected occupancy sensors are OFF.
+If the user manually turns a selected light or fan ON while the bathroom is occupied, no special setup is needed.
 
-Unknown or unavailable sensors are not treated as OFF, which prevents an automatic shutdown when occupancy status is uncertain.
+Once the bathroom becomes fully vacant, the same normal Light OFF Delay or Fan OFF Delay applies.
 
-### Step 6 — Automation-owned Light Shutdown
+The Blueprint intentionally treats the bathroom state as the source of truth instead of trying to track who pressed the ON button.
 
-If Light Ownership is ON:
+### Step 6 — Manual ON While the Bathroom Is Already Vacant
 
-1. Wait Light OFF Delay.
-2. Confirm the bathroom is still fully vacant.
-3. Confirm Light Ownership is still ON.
-4. Send Light OFF.
-5. Verify every selected light is OFF.
-6. Clear ownership only after successful verification.
+This is the forgotten-device protection.
 
-If shutdown cannot be confirmed, ownership remains ON so a later vacancy cycle can retry.
+If a selected light is ON while:
 
-### Step 7 — Manually Started Light Handling
+- The bathroom is fully vacant.
+- Forgotten Light Safety is enabled.
 
-If Light Ownership is OFF but one or more selected lights are ON, the selected Manual Light ON Behavior is applied:
+the condition must remain true continuously for the Forgotten Light Safety Timeout. If occupancy does not return, the Blueprint turns the light OFF.
 
-- **Timed Hold:** wait Maximum Manual Light Hold.
-- **Normal Vacancy Delay:** wait Light OFF Delay.
-- **Keep On:** take no action.
+The fan uses the same design with its own independent safety timeout.
 
-Before any OFF command, the Blueprint confirms again that:
+This protects against switching a light or fan ON manually and forgetting it.
 
-- All occupancy sensors are still OFF.
-- Light Ownership is still OFF.
-- At least one selected light is still ON.
+### Step 7 — Returning Occupancy
 
-### Step 8 — Automation-owned Fan Shutdown
+If occupancy returns:
 
-If Fan Ownership is ON, the fan uses Fan OFF Delay, then follows the same re-check, OFF command, and verification pattern.
+- The normal vacancy OFF actions re-check occupancy before changing devices.
+- Forgotten-device safety template timers stop because the bathroom is no longer vacant.
+- Automatic ON behavior can run again according to the configured ON delays.
 
-### Step 9 — Manually Started Fan Handling
+The Blueprint uses `mode: parallel` so safety checks and independent device timers do not cancel one another.
 
-If Fan Ownership is OFF while the fan is ON:
+### Step 8 — Home Assistant Restart
 
-- **Timed Hold:** wait Maximum Manual Fan Hold.
-- **Normal Vacancy Delay:** wait Fan OFF Delay.
-- **Keep On:** take no action.
+Home Assistant `for:` trigger timers do not survive a restart or automation reload.
 
-The fan policy is completely independent of the light policy.
+The Blueprint includes a Home Assistant startup trigger:
 
-## Useful Configuration Examples
+1. Wait Home Assistant Startup Reconcile Delay.
+2. Confirm the bathroom is fully vacant.
+3. Turn the selected lights and fan targets OFF as a simple restart recovery.
+4. If occupancy is active or any sensor is unknown/unavailable, no startup-reconcile shutdown occurs.
 
-### Fast Bathroom
+An automation reload does not fire the Home Assistant startup trigger. After a reload, the normal `for:` timers begin again only after the corresponding template has first gone false and then true. This is the main tradeoff of keeping the Blueprint completely helper-free.
 
-- Light ON Delay: 0 sec
-- Fan ON Delay: 0 sec
-- Light OFF Delay: 60 sec
-- Fan OFF Delay: 300 sec
-- Manual modes: Timed Hold
-- Manual Light Hold: 1200 sec
-- Manual Fan Hold: 1800 sec
+## Why There Are No Helpers
+
+The previous design used ownership helpers to distinguish between automation-started and manually started devices.
+
+That is technically possible, but it makes setup harder and is not necessary for the desired bathroom behavior.
+
+The simplified rule is easier to understand:
+
+> **If the bathroom is occupied, keep the selected devices available according to the ON settings. If the bathroom is vacant, use the configured OFF timings. If something is manually switched ON while already vacant, the forgotten-device safety timeout protects against leaving it ON indefinitely.**
+
+No extra entities are needed.
+
+## Multiple Sensors
+
+Multiple sensors are fully supported.
+
+Example:
+
+- Door-side motion sensor = OFF.
+- Shower-area presence sensor = ON.
+
+The bathroom remains Occupied because at least one sensor is still ON.
+
+Only when **all** selected sensors are OFF does the normal vacancy cycle begin.
+
+Unknown or unavailable sensors are not treated as OFF, which makes automatic shutdown conservative when occupancy information is uncertain.
+
+## Suggested Starting Values
+
+### Main Bathroom
+
+- Light ON Delay: 0 sec.
+- Fan ON Delay: 30–60 sec.
+- Light OFF Delay: 90 sec.
+- Fan OFF Delay: 420 sec.
+- Forgotten Light Safety: 30 min.
+- Forgotten Fan Safety: 60 min.
 
 ### Guest Bathroom
 
-- Light ON Delay: 0 sec
-- Fan ON Delay: 60 sec
-- Light OFF Delay: 120 sec
-- Fan OFF Delay: 600 sec
-- Manual Light Hold: 1800 sec
-- Manual Fan Hold: 3600 sec
+- Light ON Delay: 0 sec.
+- Fan ON Delay: 60 sec.
+- Light OFF Delay: 120 sec.
+- Fan OFF Delay: 600 sec.
+- Forgotten Light Safety: 30 min.
+- Forgotten Fan Safety: 60 min.
 
-### Fan Is Manual-only
-
-- Automatically Turn On Lights: ON
-- Automatically Turn On Fan: OFF
-- Manual Fan ON Behavior: Timed Hold
-- Maximum Manual Fan Hold: any preferred maximum
-
-The automation will not start the fan from occupancy, but a manually pre-started fan can still be protected against being forgotten after vacancy.
-
-## Important Manual-control Limit
-
-Ownership is tracked per device class, not per individual light or fan entity.
-
-For the cleanest behavior, group fixtures that should behave as one logical bathroom light or one logical fan target.
-
-If the automation already owns a device and the user sends another ON command while it is already ON, Home Assistant may not provide enough information to reliably interpret that command as a new manual override. The Blueprint therefore bases ownership primarily on whether the class was already ON before automation ownership was established.
-
-## Restart Behavior
-
-Ownership helpers persist through Home Assistant restart, but active Home Assistant delays do not.
-
-To recover safely, the Blueprint also has a Home Assistant startup trigger:
-
-1. Wait the configurable **Home Assistant Startup Reconcile Delay**.
-2. Check whether every occupancy sensor is OFF.
-3. If the bathroom is fully vacant, re-run the normal vacancy logic.
-4. Automation-owned devices resume their normal OFF-delay protection.
-5. Manually pre-started devices resume the selected Manual ON policy and maximum hold protection.
-
-If occupancy is active or uncertain after startup, no automatic shutdown occurs.
-
-For ventilation that must be guaranteed independently of Home Assistant, use device-side or electrical controls appropriate to the installation.
+These are starting points only. Every meaningful timing value is configurable.
 
 ## 100-case Logic Test
 
@@ -254,33 +198,31 @@ The repository runs:
 
 `tests/test_bathroom_logic.py`
 
-The test executes exactly 100 deterministic timing configurations covering combinations of:
+It executes exactly 100 deterministic scenarios covering:
 
-- Manual light pre-state.
-- Manual fan pre-state.
-- Automatic light ON enabled/disabled.
-- Automatic fan ON enabled/disabled.
-- Timed Hold / Normal Vacancy / Keep On.
-- Occupancy lasting or ending before ON delays.
-- Occupancy returning before shutdown.
-- Independent light and fan ownership.
-
-It verifies the safety invariants before merge.
+- Automatic light enabled/disabled.
+- Automatic fan enabled/disabled.
+- Different ON delays.
+- Different OFF delays.
+- Different forgotten-device safety timeouts.
+- Safety enabled/disabled.
+- Manual pre-existing device states.
+- Manual ON while vacant.
+- Re-entry before shutdown.
+- Home Assistant startup reconciliation.
 
 ## Safe Live-Test Checklist
 
-1. Create two dedicated ownership Toggle helpers.
-2. Import the Blueprint.
-3. For the first test, set Light ON Delay and Fan ON Delay to 0.
-4. Set Light OFF Delay to 10 seconds and Fan OFF Delay to 20 seconds.
-5. Set both Manual ON Behaviors to Timed Hold.
-6. Set both manual maximum holds to 30 seconds.
-7. Enter the bathroom and confirm the expected automatic starts.
-8. Leave and confirm the configured OFF timing.
-9. Re-enter during an OFF delay and confirm shutdown is cancelled.
-10. Turn a device ON manually before occupancy and confirm the manual policy is used after vacancy.
-11. Test Keep On and confirm the manually pre-started device remains ON.
-12. Restore production timing values only after the supervised tests pass.
+1. Import the Blueprint.
+2. Select the bathroom sensors, lights, and fan.
+3. For the first test, use Light ON Delay = 0 and Fan ON Delay = 0.
+4. Temporarily use Light OFF Delay = 10 sec and Fan OFF Delay = 20 sec.
+5. Enter and confirm both devices start.
+6. Leave and confirm they stop at the configured times.
+7. Re-enter before a timer expires and confirm the pending shutdown does not turn the device OFF.
+8. While the bathroom is vacant, manually turn the light ON and verify Forgotten Light Safety.
+9. Repeat for the fan.
+10. Restore your production timing values after supervised testing.
 
 ## Import
 

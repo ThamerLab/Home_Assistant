@@ -213,18 +213,15 @@ This repository does not preserve a private copy of one home. Instead, it turns 
 
 `bathroom_occupancy_lights_fan.yaml`
 
-- Supports one or more occupancy/motion sensors.
-- Independent Light ON, Fan ON, Light OFF, and Fan OFF delays.
-- Automatic light and fan startup can each be enabled or disabled.
-- Manual ON supports Timed Hold, Normal Vacancy Delay, or Keep On.
-- Maximum manual light and fan hold times are independently configurable.
-- Supports fan entities and relay-controlled fan switches.
-- Persistent ownership helpers distinguish automation-started devices from manual pre-states.
-- Aggregate multi-sensor occupancy avoids partial-sensor timer resets.
-- Returning occupancy cancels pending OFF delays.
-- Configurable startup reconcile delay restores vacancy/manual-hold protection after Home Assistant restarts.
-- Verifies ON and OFF state transitions.
-- Includes a 100-case deterministic configuration/ownership/vacancy logic test in CI.
+- **No helpers required.**
+- Select sensors, lights, fan targets, and timing values directly in the Blueprint.
+- Independent Light/Fan ON and OFF delays.
+- Automatic Light/Fan startup can each be enabled or disabled.
+- Forgotten Light and Fan safety timeouts protect against devices manually left ON while the bathroom is vacant.
+- Aggregate multi-sensor logic: any ON = occupied; all OFF = vacant.
+- ON/OFF commands are verified.
+- Home Assistant startup reconciliation is included.
+- 100 deterministic no-helper scenarios run in CI.
 
 [📖 Detailed guide](./blueprints/automation/bathroom/README.md)
 
