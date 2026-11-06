@@ -10,3 +10,10 @@ default_config:
 
 automation: !include automations.yaml
 script: !include scripts.yaml
+
+
+input_boolean:
+  test_bathroom_light_owned:
+    name: Test Bathroom Light Owned
+  test_bathroom_fan_owned:
+    name: Test Bathroom Fan Owned

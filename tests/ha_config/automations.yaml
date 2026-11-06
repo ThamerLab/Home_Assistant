@@ -100,3 +100,21 @@
       notify_devices:
         - "00000000000000000000000000000000"
       notification_tag: "ci_updates"
+
+
+- alias: "CI - Bathroom Occupancy Lights and Fan"
+  use_blueprint:
+    path: ThamerLab/bathroom/bathroom_occupancy_lights_fan.yaml
+    input:
+      occupancy_sensors:
+        - binary_sensor.test_bathroom_occupancy
+      lights_to_control:
+        - light.test_bathroom
+      fan_entities:
+        - fan.test_bathroom_exhaust
+      light_ownership_helper: input_boolean.test_bathroom_light_owned
+      fan_ownership_helper: input_boolean.test_bathroom_fan_owned
+      light_off_delay: 90
+      fan_off_delay: 420
+      startup_verify_seconds: 10
+      shutdown_verify_seconds: 15

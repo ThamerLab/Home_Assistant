@@ -58,6 +58,7 @@ It copies all Blueprints into the structure expected by Home Assistant and creat
 
 Coverage includes:
 
+- Bathroom Occupancy — Lights & Exhaust Fan.
 - Smart Irrigation — Sun mode.
 - Smart Irrigation — Custom time.
 - Smart Irrigation — Fixed interval.
@@ -84,7 +85,25 @@ ghcr.io/home-assistant/home-assistant:2026.9.4
 
 This verifies that Blueprint files load, inputs expand, and the generated automations/scripts are accepted by a real Home Assistant configuration check.
 
-## 3. Manual Logic Audit
+## 3. Bathroom 100-case Logic Test
+
+CI also runs:
+
+```text
+python tests/test_bathroom_logic.py
+```
+
+This executes exactly **100 deterministic ownership/vacancy scenarios** and verifies the core manual-override invariants:
+
+- A light that was manually ON before occupancy is not turned OFF by the automation.
+- A fan that was manually ON before occupancy is not turned OFF by the automation.
+- Automation-owned devices remain ON when occupancy returns before a pending OFF sequence completes.
+- Automation-owned devices turn OFF after a complete vacancy cycle.
+- Light and fan ownership remain independent.
+
+The static validator also enforces the presence of the ownership helpers, required verification actions, failure notifications, and `mode: restart` for the bathroom Blueprint.
+
+## 4. Manual Logic Audit
 
 CI cannot understand user intent by itself, so logic is also reviewed manually for:
 
@@ -104,7 +123,7 @@ CI cannot understand user intent by itself, so logic is also reviewed manually f
 - Exact Quran URI verification.
 - Explicit update-priority selection.
 
-## 4. Documentation Gate
+## 5. Documentation Gate
 
 Repository policy:
 

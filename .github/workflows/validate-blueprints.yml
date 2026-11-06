@@ -42,6 +42,9 @@ jobs:
       - name: Validate repository
         run: python tests/validate_repo.py
 
+      - name: Run 100 bathroom ownership scenarios
+        run: python tests/test_bathroom_logic.py
+
   home-assistant-check:
     name: Home Assistant 2026.9.4 config check
     runs-on: ubuntu-latest

@@ -17,6 +17,7 @@ This document explains every reusable automation and script pattern currently re
 | 7 | Timed manual irrigation | Script | [Manual Irrigation](../blueprints/script/irrigation/README.md) |
 | 8 | Quran smart toggle | Script | [Quran Safe Toggle](../blueprints/script/quran/README.md) |
 | 9 | Zone exit notification | Automation | [Zone Exit Notification](../blueprints/automation/presence/README.md) |
+| 10 | Bathroom occupancy lights and exhaust fan | Automation | [Bathroom Occupancy](../blueprints/automation/bathroom/README.md) |
 
 ---
 
@@ -188,3 +189,39 @@ The exact URI check prevents unrelated content from being mistaken for the reque
 5. Send a Companion App notification.
 
 **Important:** location accuracy and notification timing depend on the underlying Device Tracker, not on this Blueprint itself.
+
+
+---
+
+## 10. 🚿 Bathroom Occupancy — Lights & Exhaust Fan
+
+**Triggers:** Any selected occupancy/motion sensor changing ON or OFF.
+
+### Step-by-Step Flow
+
+1. A sensor changes to ON and starts the occupied branch.
+2. The automation checks whether its persistent Light Ownership Helper is already ON.
+3. If ownership is stale while all selected lights are OFF, the helper is cleared.
+4. If the automation does not own the lights and every selected light is OFF, the automation turns the lights ON.
+5. It waits for every selected light to report ON before enabling Light Ownership.
+6. The same process runs independently for the fan using the Fan Ownership Helper.
+7. If a light or fan was already ON before occupancy, the automation does not claim that class and will not later turn it OFF.
+8. When a sensor changes to OFF, the light and fan vacancy timers start in parallel.
+9. The light branch waits the configured light delay, then requires all occupancy sensors to still be OFF.
+10. If the automation owns the lights, it turns them OFF and verifies the OFF state before clearing ownership.
+11. The fan branch waits its own longer delay and follows the same ownership/verification process.
+12. If occupancy returns during either delay, `mode: restart` immediately cancels the pending OFF run while the persistent ownership helpers remain intact.
+
+### Safety Model
+
+The two dedicated `input_boolean` helpers are the key design feature. They preserve ownership across restarted automation runs and Home Assistant restarts, allowing the automation to distinguish between a pre-existing manual ON state and a device it started itself.
+
+### Automated Test Coverage
+
+`tests/test_bathroom_logic.py` runs 100 deterministic scenarios that verify:
+
+- Manual pre-existing light state survives the vacancy cycle.
+- Manual pre-existing fan state survives the vacancy cycle.
+- Automation-owned devices remain ON when occupancy returns before shutdown.
+- Automation-owned devices turn OFF after a completed vacancy cycle.
+- Light and fan ownership are independent.

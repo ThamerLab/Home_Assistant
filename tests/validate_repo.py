@@ -11,6 +11,11 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 
 BLUEPRINTS = {
+    "blueprints/automation/bathroom/bathroom_occupancy_lights_fan.yaml": {
+        "domain": "automation",
+        "doc": "blueprints/automation/bathroom/README.md",
+        "image": "assets/bathroom-occupancy.svg",
+    },
     "blueprints/automation/irrigation/smart_irrigation.yaml": {
         "domain": "automation",
         "doc": "blueprints/automation/irrigation/SMART_IRRIGATION.md",
@@ -230,6 +235,49 @@ def check_repo_for_private_values(errors: list[str]) -> None:
             )
 
 
+def check_bathroom_safety(rel_path: str, data: dict, errors: list[str]) -> None:
+    if rel_path != "blueprints/automation/bathroom/bathroom_occupancy_lights_fan.yaml":
+        return
+
+    bp = data.get("blueprint", {})
+    inputs = bp.get("input", {}) if isinstance(bp, dict) else {}
+
+    required_inputs = {
+        "occupancy_sensors",
+        "lights_to_control",
+        "fan_entities",
+        "light_ownership_helper",
+        "fan_ownership_helper",
+        "light_off_delay",
+        "fan_off_delay",
+        "startup_verify_seconds",
+        "shutdown_verify_seconds",
+    }
+    missing = sorted(required_inputs - set(inputs))
+    if missing:
+        errors.append(f"{rel_path}: missing bathroom safety inputs: {missing}")
+
+    if data.get("mode") != "restart":
+        errors.append(
+            f"{rel_path}: must use mode: restart so returning occupancy cancels pending OFF delays"
+        )
+
+    raw = (ROOT / rel_path).read_text(encoding="utf-8")
+    required_fragments = [
+        "input_boolean.turn_on",
+        "input_boolean.turn_off",
+        "light_ownership_helper",
+        "fan_ownership_helper",
+        "wait_template",
+        "persistent_notification.create",
+        "homeassistant.turn_off",
+        "light.turn_off",
+    ]
+    for fragment in required_fragments:
+        if fragment not in raw:
+            errors.append(f"{rel_path}: missing required safety fragment {fragment!r}")
+
+
 def main() -> int:
     errors: list[str] = []
 
@@ -337,6 +385,7 @@ def main() -> int:
                 )
 
         check_template_trigger_scope(rel_path, data, errors)
+        check_bathroom_safety(rel_path, data, errors)
 
         if not doc.exists():
             errors.append(

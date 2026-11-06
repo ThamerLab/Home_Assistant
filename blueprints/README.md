@@ -13,6 +13,7 @@ Every Blueprint in this catalog must include:
 
 | Blueprint | YAML | Detailed guide | Image |
 |---|---|---|---|
+| 🚿 Bathroom Occupancy — Lights & Fan | [bathroom_occupancy_lights_fan.yaml](./automation/bathroom/bathroom_occupancy_lights_fan.yaml) | [Guide](./automation/bathroom/README.md) | [SVG](../assets/bathroom-occupancy.svg) |
 | 🌱 Smart Irrigation | [smart_irrigation.yaml](./automation/irrigation/smart_irrigation.yaml) | [Guide](./automation/irrigation/SMART_IRRIGATION.md) | [SVG](../assets/irrigation.svg) |
 | 🚨 Long-running Water Safety | [long_running_water_safety.yaml](./automation/irrigation/long_running_water_safety.yaml) | [Guide](./automation/irrigation/WATER_SAFETY.md) | [SVG](../assets/water-safety.svg) |
 | 🌙 Dusk to Dawn | [outside_lights_dusk_dawn.yaml](./automation/lighting/outside_lights_dusk_dawn.yaml) | [Guide](./automation/lighting/DUSK_TO_DAWN.md) | [SVG](../assets/outdoor-dusk-dawn.svg) |
