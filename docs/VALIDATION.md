@@ -102,6 +102,7 @@ This executes exactly **100 deterministic configuration/ownership/vacancy scenar
 - Returning occupancy before shutdown preserves the current device/ownership state.
 - Automation-owned devices turn OFF after an uninterrupted vacancy cycle.
 - Light and fan ownership remain independent.
+- Numeric ON/OFF/manual-hold timing deadlines and re-entry timing are exercised across the 100 deterministic cases.
 
 The static validator also requires all configurable bathroom timing inputs, all three manual policies, ownership helpers, verification actions, failure notifications, and `mode: restart`.
 
