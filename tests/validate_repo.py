@@ -248,10 +248,19 @@ def check_bathroom_safety(rel_path: str, data: dict, errors: list[str]) -> None:
         "fan_entities",
         "light_ownership_helper",
         "fan_ownership_helper",
+        "auto_turn_on_lights",
+        "auto_turn_on_fan",
+        "light_on_delay",
+        "fan_on_delay",
         "light_off_delay",
         "fan_off_delay",
+        "light_manual_on_behavior",
+        "fan_manual_on_behavior",
+        "light_manual_hold_max",
+        "fan_manual_hold_max",
         "startup_verify_seconds",
         "shutdown_verify_seconds",
+        "startup_reconcile_delay",
     }
     missing = sorted(required_inputs - set(inputs))
     if missing:
@@ -272,6 +281,16 @@ def check_bathroom_safety(rel_path: str, data: dict, errors: list[str]) -> None:
         "persistent_notification.create",
         "homeassistant.turn_off",
         "light.turn_off",
+        "timed_hold",
+        "normal_vacancy",
+        "keep_on",
+        "light_manual_hold_max",
+        "fan_manual_hold_max",
+        "light_on_delay",
+        "fan_on_delay",
+        "startup_reconcile_delay",
+        "trigger_variables",
+        "startup_reconcile",
     ]
     for fragment in required_fragments:
         if fragment not in raw:

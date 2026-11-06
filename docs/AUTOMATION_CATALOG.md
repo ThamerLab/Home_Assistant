@@ -199,29 +199,57 @@ The exact URI check prevents unrelated content from being mistaken for the reque
 
 ### Step-by-Step Flow
 
-1. A sensor changes to ON and starts the occupied branch.
-2. The automation checks whether its persistent Light Ownership Helper is already ON.
-3. If ownership is stale while all selected lights are OFF, the helper is cleared.
-4. If the automation does not own the lights and every selected light is OFF, the automation turns the lights ON.
-5. It waits for every selected light to report ON before enabling Light Ownership.
-6. The same process runs independently for the fan using the Fan Ownership Helper.
-7. If a light or fan was already ON before occupancy, the automation does not claim that class and will not later turn it OFF.
-8. When a sensor changes to OFF, the light and fan vacancy timers start in parallel.
-9. The light branch waits the configured light delay, then requires all occupancy sensors to still be OFF.
-10. If the automation owns the lights, it turns them OFF and verifies the OFF state before clearing ownership.
-11. The fan branch waits its own longer delay and follows the same ownership/verification process.
-12. If occupancy returns during either delay, `mode: restart` immediately cancels the pending OFF run while the persistent ownership helpers remain intact.
+1. Aggregate occupancy becomes active when any selected sensor is ON; full vacancy occurs only when all selected sensors are OFF.
+2. Optional Light ON Delay and Fan ON Delay run independently.
+3. After each ON delay, occupancy must still be active before that device class may start.
+4. Automatic light and fan startup can each be disabled independently.
+5. If a device class is OFF and unowned, the automation records ownership before sending ON.
+6. Startup must be verified; failed startup releases ownership and sends a persistent diagnostic.
+7. When the bathroom becomes fully vacant, light and fan shutdown logic run independently.
+8. Automation-owned lights use Light OFF Delay.
+9. Automation-owned fan targets use Fan OFF Delay.
+10. A manually pre-started device class follows its selected manual policy:
+    - Timed Hold.
+    - Normal Vacancy Delay.
+    - Keep On.
+11. Timed Hold uses independently configurable maximum light/fan hold times.
+12. Before every OFF command, the Blueprint re-checks vacancy, ownership, and current device state.
+13. OFF commands are verified before automation ownership is released.
+14. Returning aggregate occupancy restarts the automation and cancels pending shutdown delays.
+15. After Home Assistant startup, a configurable reconcile delay restores vacancy/manual-hold protection when the bathroom is fully vacant.
 
-### Safety Model
+### Timing Controls
 
-The two dedicated `input_boolean` helpers are the key design feature. They preserve ownership across restarted automation runs and Home Assistant restarts, allowing the automation to distinguish between a pre-existing manual ON state and a device it started itself.
+Every important timing value is adjustable from the Blueprint UI:
+
+- Light ON Delay.
+- Fan ON Delay.
+- Light OFF Delay.
+- Fan OFF Delay.
+- Maximum Manual Light Hold.
+- Maximum Manual Fan Hold.
+- Startup Verification timeout.
+- Shutdown Verification timeout.
+- Home Assistant Startup Reconcile Delay.
+
+### Manual ON Policy
+
+Manual pre-states are identified by an OFF ownership helper while the selected device class is already ON.
+
+**Timed Hold** is the recommended default: manual ON behaves like a temporary occupancy hold after vacancy, but a configurable maximum protects against forgotten devices.
+
+**Normal Vacancy Delay** uses the standard class OFF delay.
+
+**Keep On** never turns a manually pre-started class OFF.
 
 ### Automated Test Coverage
 
-`tests/test_bathroom_logic.py` runs 100 deterministic scenarios that verify:
+`tests/test_bathroom_logic.py` runs exactly 100 deterministic configurations covering:
 
-- Manual pre-existing light state survives the vacancy cycle.
-- Manual pre-existing fan state survives the vacancy cycle.
-- Automation-owned devices remain ON when occupancy returns before shutdown.
-- Automation-owned devices turn OFF after a completed vacancy cycle.
-- Light and fan ownership are independent.
+- Manual light/fan pre-states.
+- Automatic light/fan enable flags.
+- ON-delay persistence.
+- All three manual policies.
+- Interrupted shutdown windows.
+- Independent light and fan ownership.
+

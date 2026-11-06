@@ -93,15 +93,18 @@ CI also runs:
 python tests/test_bathroom_logic.py
 ```
 
-This executes exactly **100 deterministic ownership/vacancy scenarios** and verifies the core manual-override invariants:
+This executes exactly **100 deterministic configuration/ownership/vacancy scenarios** and verifies:
 
-- A light that was manually ON before occupancy is not turned OFF by the automation.
-- A fan that was manually ON before occupancy is not turned OFF by the automation.
-- Automation-owned devices remain ON when occupancy returns before a pending OFF sequence completes.
-- Automation-owned devices turn OFF after a complete vacancy cycle.
+- Manual pre-states are not incorrectly claimed by automation ownership.
+- Automatic light/fan enable flags are respected.
+- Occupancy ending before an ON delay prevents that automatic start.
+- Timed Hold, Normal Vacancy Delay, and Keep On produce the expected manual-state result.
+- Returning occupancy before shutdown preserves the current device/ownership state.
+- Automation-owned devices turn OFF after an uninterrupted vacancy cycle.
 - Light and fan ownership remain independent.
+- Numeric ON/OFF/manual-hold timing deadlines and re-entry timing are exercised across the 100 deterministic cases.
 
-The static validator also enforces the presence of the ownership helpers, required verification actions, failure notifications, and `mode: restart` for the bathroom Blueprint.
+The static validator also requires all configurable bathroom timing inputs, all three manual policies, ownership helpers, verification actions, failure notifications, and `mode: restart`.
 
 ## 4. Manual Logic Audit
 
