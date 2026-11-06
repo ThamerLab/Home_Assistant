@@ -112,18 +112,16 @@
         - light.test_bathroom
       fan_entities:
         - fan.test_bathroom_exhaust
-      light_ownership_helper: input_boolean.test_bathroom_light_owned
-      fan_ownership_helper: input_boolean.test_bathroom_fan_owned
       auto_turn_on_lights: true
       auto_turn_on_fan: true
       light_on_delay: 0
       fan_on_delay: 30
       light_off_delay: 90
       fan_off_delay: 420
-      light_manual_on_behavior: timed_hold
-      fan_manual_on_behavior: timed_hold
-      light_manual_hold_max: 1800
-      fan_manual_hold_max: 3600
+      enable_vacant_light_safety: true
+      vacant_light_safety_timeout: 1800
+      enable_vacant_fan_safety: true
+      vacant_fan_safety_timeout: 3600
       startup_verify_seconds: 10
       shutdown_verify_seconds: 15
       startup_reconcile_delay: 30
