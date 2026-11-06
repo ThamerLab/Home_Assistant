@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="360" viewBox="0 0 900 360" role="img" aria-labelledby="title desc">
+  <title id="title">Bathroom Occupancy Lights and Exhaust Fan</title>
+  <desc id="desc">Blueprint artwork for occupancy-controlled bathroom lights and an exhaust fan with manual-override ownership.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#071A27"/>
+      <stop offset=".58" stop-color="#0E5261"/>
+      <stop offset="1" stop-color="#187A72"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="360" rx="30" fill="url(#bg)"/>
+  <text x="54" y="68" fill="#B9F4FF" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700">BATHROOM AUTOMATION</text>
+  <text x="54" y="120" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800">Occupancy • Lights • Exhaust Fan</text>
+  <text x="54" y="160" fill="#D8F1F2" font-family="Arial, Helvetica, sans-serif" font-size="20">Manual-state safe • Independent delays • Persistent ownership</text>
+  <g transform="translate(55 208)">
+    <rect width="170" height="54" rx="27" fill="#41BDF5" opacity=".16" stroke="#41BDF5" stroke-opacity=".7"/>
+    <text x="85" y="35" text-anchor="middle" fill="#EBF9FF" font-family="Arial" font-size="17" font-weight="700">Occupancy</text>
+    <rect x="186" width="160" height="54" rx="27" fill="#FBBF24" opacity=".16" stroke="#FBBF24" stroke-opacity=".7"/>
+    <text x="266" y="35" text-anchor="middle" fill="#FFF7DF" font-family="Arial" font-size="17" font-weight="700">Light delay</text>
+    <rect x="362" width="160" height="54" rx="27" fill="#10B981" opacity=".16" stroke="#10B981" stroke-opacity=".7"/>
+    <text x="442" y="35" text-anchor="middle" fill="#EAFFF7" font-family="Arial" font-size="17" font-weight="700">Fan delay</text>
+  </g>
+  <g transform="translate(690 70)">
+    <path d="M55 0c31 0 55 24 55 55s-24 55-55 55S0 86 0 55 24 0 55 0Z" fill="none" stroke="#41BDF5" stroke-width="9"/>
+    <circle cx="55" cy="55" r="8" fill="#FFFFFF"/>
+    <path d="M55 55c-5-30 2-47 22-52 8 19 1 36-22 52Zm0 0c30-5 47 2 52 22-19 8-36 1-52-22Zm0 0c5 30-2 47-22 52-8-19-1-36 22-52Zm0 0c-30 5-47-2-52-22 19-8 36-1 52 22Z" fill="#10B981" opacity=".9"/>
+    <path d="M19 181h72l-9 55H28z" fill="#FBBF24"/>
+    <path d="M34 181v-34c0-23 18-42 40-42s40 19 40 42v34" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round"/>
+    <path d="M10 246h105" stroke="#41BDF5" stroke-width="9" stroke-linecap="round"/>
+  </g>
+</svg>
