@@ -203,19 +203,23 @@ The exact URI check prevents unrelated content from being mistaken for the reque
 2. Any sensor ON means occupied.
 3. All sensors OFF means vacant.
 4. The Light ON trigger requires occupancy to remain active for the configurable Light ON Delay.
-5. The Fan ON trigger independently requires occupancy to remain active for the configurable Fan ON Delay.
-6. Light and fan automatic startup can each be disabled independently.
-7. The Light OFF trigger requires full vacancy to remain continuously true for Light OFF Delay.
-8. The Fan OFF trigger independently requires full vacancy for Fan OFF Delay.
-9. If occupancy returns before either `for:` timer completes, Home Assistant resets that trigger timer automatically.
-10. Forgotten Light Safety detects lights that remain ON while the bathroom is already vacant and shuts them down after its configurable timeout.
-11. Forgotten Fan Safety does the same for the exhaust fan.
-12. Every normal ON/OFF command is followed by state verification.
-13. After a Home Assistant restart, Startup Reconcile Delay provides a simple recovery path when the bathroom is still fully vacant.
+5. When Light ON fires, the configured night window selects the lighting target: Night Low Light only inside the window, regular lights plus Low Light outside it.
+6. The default night window is 23:00 → 08:00 and supports crossing midnight.
+7. The Fan ON trigger independently requires occupancy to remain active for the configurable Fan ON Delay.
+8. Light and fan automatic startup can each be disabled independently.
+9. The Light OFF trigger requires full vacancy to remain continuously true for Light OFF Delay and turns OFF both regular lights and the Low Light.
+10. The Fan OFF trigger independently requires full vacancy for Fan OFF Delay.
+11. If occupancy returns before either `for:` timer completes, Home Assistant resets that trigger timer automatically.
+12. Forgotten Light Safety monitors both the regular lights and Low Light while the bathroom is vacant.
+13. Forgotten Fan Safety does the same for the exhaust fan.
+14. Every normal ON/OFF command is followed by state verification.
+15. After a Home Assistant restart, Startup Reconcile Delay provides a simple recovery path when the bathroom is still fully vacant.
 
 ### Configurable Timing
 
 - Light ON Delay.
+- Night Low Light Start.
+- Night Low Light End.
 - Fan ON Delay.
 - Light OFF Delay.
 - Fan OFF Delay.
@@ -235,5 +239,5 @@ If a device is manually switched ON while the bathroom is already vacant, the fo
 
 ### Automated Test Coverage
 
-`tests/test_bathroom_logic.py` runs exactly 100 deterministic no-helper scenarios covering automatic startup, timing, re-entry, forgotten-device safety, and startup reconciliation.
+`tests/test_bathroom_logic.py` runs exactly 100 deterministic no-helper scenarios covering automatic startup, timing, re-entry, forgotten-device safety, startup reconciliation, and night-window boundary behavior.
 
