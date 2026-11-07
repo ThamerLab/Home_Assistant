@@ -11,7 +11,8 @@ This Blueprint is intentionally self-contained. **No helper entities are require
 You only select:
 
 - Occupancy / motion sensors.
-- Bathroom lights.
+- Regular bathroom lights.
+- One dedicated Night Low Light.
 - Exhaust fan targets.
 - The timing and safety options you want.
 
@@ -22,6 +23,9 @@ Everything else is handled inside the Blueprint.
 - One or more occupancy/motion sensors.
 - Aggregate occupancy: any sensor ON = occupied; all sensors OFF = vacant.
 - Optional automatic light ON.
+- Configurable Night Low Light window.
+- During the night window, automatic lighting turns ON only the dedicated Low Light.
+- Outside the night window, automatic lighting turns ON the regular lights plus the Low Light.
 - Optional automatic fan ON.
 - Independent Light ON and Fan ON delays.
 - Independent Light OFF and Fan OFF delays.
@@ -39,7 +43,10 @@ Everything else is handled inside the Blueprint.
 | Input | Default | Purpose |
 |---|---:|---|
 | Occupancy / Motion Sensors | — | Any ON means occupied; all OFF means vacant |
-| Bathroom Lights | — | Lights controlled by the Blueprint |
+| Bathroom Lights | — | Regular/daytime bathroom lights |
+| Night Low Light | — | Dedicated low light used alone during the night window and together with regular lights during the day |
+| Night Low Light Start | 23:00 | Start of low-light-only automatic lighting |
+| Night Low Light End | 08:00 | End of low-light-only automatic lighting |
 | Exhaust Fan | — | Fan or switch entities controlled by the Blueprint |
 | Automatically Turn On Lights | ON | Enables occupancy-based automatic light startup |
 | Automatically Turn On Fan | ON | Enables occupancy-based automatic fan startup |
@@ -66,17 +73,20 @@ The Blueprint combines all selected sensors into one logical bathroom state:
 
 A sensor becoming OFF while another sensor remains ON does not count as vacancy.
 
-### Step 2 — Automatic Light Start
+### Step 2 — Automatic Light Start and Night Low Light
 
 The Light ON trigger itself uses Home Assistant's `for:` timer.
 
 The aggregate occupied condition must remain continuously true for Light ON Delay. If occupancy ends before the timer completes, the trigger does not fire.
 
-When it fires:
+When it fires, the current local Home Assistant time selects the lighting target:
 
-1. Turn the selected lights ON.
-2. Wait for every selected light to confirm ON.
-3. If confirmation fails, create a persistent diagnostic notification.
+- **Inside Night Low Light Start → Night Low Light End:** turn ON only the dedicated Night Low Light.
+- **Outside that window:** turn ON the regular Bathroom Lights **and** the Night Low Light.
+
+The default night window is **23:00 → 08:00** and correctly crosses midnight.
+
+The selected lighting target is then verified. If the expected light set does not report ON within Startup Verification, a persistent diagnostic notification is created.
 
 Set Light ON Delay to 0 for immediate lighting.
 
@@ -97,6 +107,8 @@ The Blueprint has two independent vacancy triggers:
 
 Because the delays live in the triggers as `for:` durations, returning occupancy before a timer completes resets that timer automatically.
 
+Light shutdown always turns OFF **both** the regular Bathroom Lights and the dedicated Night Low Light, regardless of which lighting mode started them.
+
 ### Step 5 — Manual ON During an Occupied Visit
 
 If the user manually turns a selected light or fan ON while the bathroom is occupied, no special setup is needed.
@@ -109,7 +121,7 @@ The Blueprint intentionally treats the bathroom state as the source of truth ins
 
 This is the forgotten-device protection.
 
-If a selected light is ON while:
+If any regular bathroom light **or the dedicated Night Low Light** is ON while:
 
 - The bathroom is fully vacant.
 - Forgotten Light Safety is enabled.
@@ -170,6 +182,18 @@ Only when **all** selected sensors are OFF does the normal vacancy cycle begin.
 
 Unknown or unavailable sensors are not treated as OFF, which makes automatic shutdown conservative when occupancy information is uncertain.
 
+## Night Window Examples
+
+With the default `23:00 → 08:00`:
+
+- 22:59:59 → regular lights + Low Light.
+- 23:00:00 → Low Light only.
+- 00:00:00 → Low Light only.
+- 07:59:59 → Low Light only.
+- 08:00:00 → regular lights + Low Light.
+
+The start time is inclusive and the end time is exclusive.
+
 ## Suggested Starting Values
 
 ### Main Bathroom
@@ -206,6 +230,8 @@ It executes exactly 100 deterministic scenarios covering:
 - Different OFF delays.
 - Different forgotten-device safety timeouts.
 - Safety enabled/disabled.
+- Night windows that cross midnight.
+- Exact night-window boundary behavior.
 - Manual pre-existing device states.
 - Manual ON while vacant.
 - Re-entry before shutdown.
