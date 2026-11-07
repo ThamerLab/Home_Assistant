@@ -216,6 +216,7 @@ This repository does not preserve a private copy of one home. Instead, it turns 
 - **No helpers required.**
 - Select sensors, lights, fan targets, and timing values directly in the Blueprint.
 - Independent Light/Fan ON and OFF delays.
+- Configurable Night Low Light window: Low Light only at night, all bathroom lights outside the window.
 - Automatic Light/Fan startup can each be enabled or disabled.
 - Forgotten Light and Fan safety timeouts protect against devices manually left ON while the bathroom is vacant.
 - Aggregate multi-sensor logic: any ON = occupied; all OFF = vacant.
@@ -267,7 +268,7 @@ All relevant changes run:
 
 `.github/workflows/validate-blueprints.yml`
 
-The workflow checks YAML parsing, Blueprint metadata, `!input` integrity, wait timeouts, documentation/image coverage, SVG/XML validity, local links, privacy patterns, Home Assistant `check_config`, and 100 deterministic bathroom ownership/vacancy scenarios.
+The workflow checks YAML parsing, Blueprint metadata, `!input` integrity, wait timeouts, documentation/image coverage, SVG/XML validity, local links, privacy patterns, Home Assistant `check_config`, and 100 deterministic bathroom scenarios including night-window boundaries.
 
 See [docs/VALIDATION.md](./docs/VALIDATION.md).
 

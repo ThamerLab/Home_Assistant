@@ -110,6 +110,9 @@
         - binary_sensor.test_bathroom_occupancy
       lights_to_control:
         - light.test_bathroom
+      low_light_entity: light.test_bathroom_low
+      night_low_light_start: "23:00:00"
+      night_low_light_end: "08:00:00"
       fan_entities:
         - fan.test_bathroom_exhaust
       auto_turn_on_lights: true

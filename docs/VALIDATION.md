@@ -98,6 +98,9 @@ This executes exactly **100 deterministic no-helper scenarios** and verifies:
 - Automatic light ON enable/disable behavior.
 - Automatic fan ON enable/disable behavior.
 - Light and fan ON delays.
+- Night Low Light windows that cross midnight.
+- Exact 23:00 start / 08:00 end boundary semantics.
+- Daytime "all lights" versus nighttime "Low Light only" selection.
 - Light and fan OFF delays.
 - Re-entry before an OFF deadline prevents shutdown.
 - Forgotten Light Safety enabled/disabled behavior.
@@ -109,7 +112,7 @@ This executes exactly **100 deterministic no-helper scenarios** and verifies:
 The static validator also enforces that the bathroom Blueprint:
 
 - Requires **no `input_boolean` helpers**.
-- Includes all timing and safety inputs.
+- Includes all timing, night-low-light, and safety inputs.
 - Uses aggregate template triggers.
 - Includes separate normal OFF and forgotten-device safety triggers.
 - Uses bounded verification waits.

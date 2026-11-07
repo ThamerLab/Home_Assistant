@@ -34,6 +34,31 @@ blueprint:
             domain: light
           multiple: true
 
+    low_light_entity:
+      name: "🌙 Night Low Light"
+      description: >
+        Select the dedicated low-light fixture. During the configured night
+        window, occupancy turns ON only this light. Outside the night window,
+        occupancy turns ON both the regular bathroom lights and this low light.
+      selector:
+        entity:
+          filter:
+            domain: light
+
+    night_low_light_start:
+      name: "🌙 Night Low Light Start"
+      description: "Start time for low-light-only automatic lighting."
+      default: "23:00:00"
+      selector:
+        time:
+
+    night_low_light_end:
+      name: "☀️ Night Low Light End"
+      description: "End time for low-light-only automatic lighting."
+      default: "08:00:00"
+      selector:
+        time:
+
     fan_entities:
       name: "🌀 Exhaust Fan"
       description: >
@@ -185,6 +210,7 @@ blueprint:
 trigger_variables:
   occupancy: !input occupancy_sensors
   lights: !input lights_to_control
+  low_light: !input low_light_entity
   fans: !input fan_entities
   light_auto: !input auto_turn_on_lights
   fan_auto: !input auto_turn_on_fan
@@ -194,6 +220,9 @@ trigger_variables:
 variables:
   occupancy_entities: !input occupancy_sensors
   light_entities: !input lights_to_control
+  low_light_entity: !input low_light_entity
+  night_start: !input night_low_light_start
+  night_end: !input night_low_light_end
   fan_targets: !input fan_entities
   start_verify: !input startup_verify_seconds
   stop_verify: !input shutdown_verify_seconds
@@ -268,7 +297,7 @@ triggers:
         )
         and
         (
-          expand(lights)
+          expand(lights + [low_light])
           | selectattr('state', 'eq', 'on')
           | list
           | count > 0
@@ -313,20 +342,44 @@ actions:
           - condition: trigger
             id: light_on_ready
         sequence:
-          - action: light.turn_on
-            target:
-              entity_id: !input lights_to_control
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: >
+                      {% set current = now().strftime('%H:%M:%S') %}
+                      {% if night_start < night_end %}
+                        {{ night_start <= current < night_end }}
+                      {% else %}
+                        {{ current >= night_start or current < night_end }}
+                      {% endif %}
+                sequence:
+                  - action: light.turn_on
+                    target:
+                      entity_id: !input low_light_entity
 
-          - wait_template: >
-              {{
-                expand(light_entities)
-                | rejectattr('state', 'eq', 'on')
-                | list
-                | count == 0
-              }}
-            timeout:
-              seconds: "{{ start_verify | int }}"
-            continue_on_timeout: true
+                  - wait_template: "{{ is_state(low_light_entity, 'on') }}"
+                    timeout:
+                      seconds: "{{ start_verify | int }}"
+                    continue_on_timeout: true
+            default:
+              - action: light.turn_on
+                target:
+                  entity_id: !input lights_to_control
+
+              - action: light.turn_on
+                target:
+                  entity_id: !input low_light_entity
+
+              - wait_template: >
+                  {{
+                    expand(light_entities + [low_light_entity])
+                    | rejectattr('state', 'eq', 'on')
+                    | list
+                    | count == 0
+                  }}
+                timeout:
+                  seconds: "{{ start_verify | int }}"
+                continue_on_timeout: true
 
           - choose:
               - conditions:
@@ -337,8 +390,8 @@ actions:
                     data:
                       title: "Bathroom light startup not confirmed"
                       message: >
-                        ON was sent to the selected bathroom lights, but not every
-                        light reported ON within {{ start_verify }} seconds.
+                        The expected bathroom lighting did not fully report ON
+                        within {{ start_verify }} seconds.
 
       - conditions:
           - condition: trigger
@@ -391,9 +444,14 @@ actions:
             target:
               entity_id: !input lights_to_control
 
+          - action: light.turn_off
+            continue_on_error: true
+            target:
+              entity_id: !input low_light_entity
+
           - wait_template: >
               {{
-                expand(light_entities)
+                expand(light_entities + [low_light_entity])
                 | rejectattr('state', 'eq', 'off')
                 | list
                 | count == 0
@@ -480,6 +538,10 @@ actions:
                     continue_on_error: true
                     target:
                       entity_id: !input lights_to_control
+                  - action: light.turn_off
+                    continue_on_error: true
+                    target:
+                      entity_id: !input low_light_entity
               - sequence:
                   - action: homeassistant.turn_off
                     continue_on_error: true
