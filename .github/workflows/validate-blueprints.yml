@@ -45,6 +45,9 @@ jobs:
       - name: Run 100 bathroom no-helper scenarios
         run: python tests/test_bathroom_logic.py
 
+      - name: Validate 100-pattern dashboard reference library
+        run: python tests/test_dashboard_library.py
+
   home-assistant-check:
     name: Home Assistant 2026.9.4 config check
     runs-on: ubuntu-latest
