@@ -2,6 +2,8 @@
 
 This folder is the design reference for future Home Assistant dashboard work in ThamerLab.
 
+The research baseline was refreshed against Home Assistant **2026.11** on 2026-11-12. Deployment must still check the actual target Home Assistant version before using version-specific features such as automatic Sections or Marketplace-managed community content.
+
 It is not a collection of 100 screenshots or copied private configurations. It is a curated library of **100 reusable dashboard patterns**, grounded in current Home Assistant native capabilities and cross-checked against active community projects.
 
 ## Files
