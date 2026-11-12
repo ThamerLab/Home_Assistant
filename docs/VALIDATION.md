@@ -186,3 +186,31 @@ Edit
 ```
 
 The rule is not bypassed because an earlier revision of the same pull request passed.
+
+
+## 6. Dashboard Reference Library Test
+
+CI also runs:
+
+```text
+python tests/test_dashboard_library.py
+```
+
+This validates the dashboard design reference library under:
+
+```text
+docs/dashboard-library/
+```
+
+The test requires:
+
+- Exactly **100** dashboard pattern rows.
+- Pattern IDs exactly `D001` through `D100`, in order.
+- Unique pattern names.
+- Required metadata on every pattern.
+- Valid Low / Medium / High complexity and maintenance-risk values.
+- Every referenced source ID to exist in `SOURCES.md`.
+- At least 50 registered sources.
+- An explicit PASS result in the pilot quality gate.
+
+This prevents the dashboard library from silently shrinking, duplicating entries, or accumulating unresolved source references.

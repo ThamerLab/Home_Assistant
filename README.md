@@ -13,7 +13,7 @@
 
 **Reusable Home Assistant Blueprints with detailed English documentation, dedicated visuals, failure handling, and automated validation.**
 
-[Blueprints](#-blueprints) · [Automation Catalog](./docs/AUTOMATION_CATALOG.md) · [Full Audit](./docs/AUDIT_2026-10-11.md) · [Installation](./docs/INSTALLATION.md) · [Validation](./docs/VALIDATION.md)
+[Blueprints](#-blueprints) · [Automation Catalog](./docs/AUTOMATION_CATALOG.md) · [Dashboard Library](./docs/dashboard-library/README.md) · [Full Audit](./docs/AUDIT_2026-10-11.md) · [Installation](./docs/INSTALLATION.md) · [Validation](./docs/VALIDATION.md)
 
 </div>
 
@@ -246,6 +246,18 @@ For a single step-by-step explanation of every reusable automation and script:
 
 **[docs/AUTOMATION_CATALOG.md](./docs/AUTOMATION_CATALOG.md)**
 
+## 🖥️ Dashboard Reference Library
+
+The repository also includes a curated, tested dashboard design reference:
+
+- **100 reusable dashboard patterns** covering whole-home, room, mobile, wall-tablet, climate, security, energy, family/media, infrastructure and specialized use cases.
+- A current Home Assistant native-first baseline.
+- A source registry spanning official Home Assistant documentation and active community projects.
+- A pilot quality gate completed before the 100-pattern catalog was adopted.
+- An automated CI test that requires exactly 100 unique pattern IDs and validates their source references and metadata.
+
+[📚 Open the Dashboard Reference Library](./docs/dashboard-library/README.md)
+
 ## 🚀 Import
 
 Every detailed guide contains a direct Import button.
@@ -268,7 +280,7 @@ All relevant changes run:
 
 `.github/workflows/validate-blueprints.yml`
 
-The workflow checks YAML parsing, Blueprint metadata, `!input` integrity, wait timeouts, documentation/image coverage, SVG/XML validity, local links, privacy patterns, Home Assistant `check_config`, and 100 deterministic bathroom scenarios including night-window boundaries.
+The workflow checks YAML parsing, Blueprint metadata, `!input` integrity, wait timeouts, documentation/image coverage, SVG/XML validity, local links, privacy patterns, Home Assistant `check_config`, 100 deterministic bathroom scenarios including night-window boundaries, and the 100-pattern dashboard reference library integrity test.
 
 See [docs/VALIDATION.md](./docs/VALIDATION.md).
 
