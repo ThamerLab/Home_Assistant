@@ -12,9 +12,11 @@ The pilot therefore tests the curation method before the catalog expands to 100 
 
 ## Current Home Assistant Baseline
 
+Research was refreshed against Home Assistant **2026.11** documentation on 2026-11-12. Home Assistant 2026.11 adds automatic Sections and the built-in Marketplace. When implementing on an older Home Assistant instance, version-specific features must be downgraded gracefully (for example, use manual Sections where automatic Sections are unavailable).
+
 For new dashboard work, the default baseline is:
 
-1. Prefer native **Sections** view for responsive grid layout.
+1. Prefer native **Sections** view for responsive grid layout; use **Automatic Sections** when registry-driven content is desirable and the target Home Assistant version supports them.
 2. Prefer native **Tile** and **Area** cards for ordinary controls and room summaries.
 3. Prefer per-card/per-section **Visibility** conditions instead of wrapping everything in Conditional cards.
 4. Use **Panel** for full-screen maps, cameras, floorplans, or custom applications.
